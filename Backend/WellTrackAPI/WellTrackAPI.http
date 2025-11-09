@@ -1,0 +1,6 @@
+@WellTrackAPI_HostAddress = http://localhost:5263
+
+GET {{WellTrackAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
