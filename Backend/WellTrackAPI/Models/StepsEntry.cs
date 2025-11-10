@@ -6,5 +6,8 @@ namespace WellTrackAPI.Models
         public DateTime Date { get; set; } = DateTime.Now;
         public int Steps { get; set; }
         public string ActivityType { get; set; } = "Walking";
+        public int UserId { get; set; }
+        public User User { get; set; } = null!;
+
     }
 }

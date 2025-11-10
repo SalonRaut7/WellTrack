@@ -1,31 +1,3 @@
-// using Microsoft.EntityFrameworkCore;
-// using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-// using WellTrackAPI.Models;
-
-// namespace WellTrackAPI.Data
-// {
-//     public class ApplicationDbContext : DbContext
-//     {
-//         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-//             : base(options)
-//         {
-//         }
-        
-//         protected override void ConfigureConventions(ModelConfigurationBuilder builder)
-//         {
-//             builder.Properties<DateTime>()
-//                 .HaveConversion(
-//                     v => v.ToUniversalTime(),
-//                     v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
-//         }
-//         public DbSet<MoodEntry> MoodEntries { get; set; }
-//         public DbSet<SleepEntry> SleepEntries { get; set; }
-//         public DbSet<StepsEntry> StepsEntries { get; set; }
-//         public DbSet<HydrationEntry> HydrationEntries { get; set; }
-//         public DbSet<HabitEntry> HabitEntries { get; set; }
-//     }
-// }
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WellTrackAPI.Models;
@@ -74,5 +46,7 @@ namespace WellTrackAPI.Data
         public DbSet<StepsEntry> StepsEntries { get; set; }
         public DbSet<HydrationEntry> HydrationEntries { get; set; }
         public DbSet<HabitEntry> HabitEntries { get; set; }
+        public DbSet<User> Users { get; set; }
+
     }
 }

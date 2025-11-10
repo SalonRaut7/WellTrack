@@ -6,5 +6,9 @@ namespace WellTrackAPI.Models
         public DateTime Date { get; set; } = DateTime.Now;
         public double Hours { get; set; } // e.g. 7.5
         public string Quality { get; set; } = string.Empty; // e.g. "Good", "Poor"
+
+        public int UserId { get; set; }
+        public User User { get; set; } = null!;
+
     }
 }

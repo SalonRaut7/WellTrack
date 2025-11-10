@@ -6,5 +6,9 @@ namespace WellTrackAPI.Models
         public DateTime Date { get; set; } = DateTime.Now;
         public string Mood { get; set; } = string.Empty; // e.g. "Happy", "Sad"
         public string Notes { get; set; } = string.Empty;
+
+        public int UserId { get; set; }
+        public User User { get; set; } = null!;
+
     }
 }

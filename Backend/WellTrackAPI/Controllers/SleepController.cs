@@ -1,31 +1,3 @@
-// using Microsoft.AspNetCore.Mvc;
-// using WellTrackAPI.Data;
-// using WellTrackAPI.Models;
-// using Microsoft.EntityFrameworkCore;
-
-// namespace WellTrackAPI.Controllers
-// {
-//     [ApiController]
-//     [Route("api/[controller]")]
-//     public class SleepController : ControllerBase
-//     {
-//         private readonly ApplicationDbContext _context;
-//         public SleepController(ApplicationDbContext context) => _context = context;
-
-//         [HttpGet]
-//         public async Task<IActionResult> GetAll() => Ok(await _context.SleepEntries.ToListAsync());
-
-//         [HttpPost]
-//         public async Task<IActionResult> Create(SleepEntry entry)
-//         {
-//             _context.SleepEntries.Add(entry);
-//             await _context.SaveChangesAsync();
-//             return Ok(entry);
-//         }
-//     }
-// }
-
-
 using Microsoft.AspNetCore.Mvc;
 using WellTrackAPI.Data;
 using WellTrackAPI.Models;
