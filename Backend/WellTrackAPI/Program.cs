@@ -61,7 +61,7 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for WellTrack wellness tracking app"
     });
 
-    // 🔐 Enable JWT authentication in Swagger
+    // Enable JWT authentication in Swagger
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",

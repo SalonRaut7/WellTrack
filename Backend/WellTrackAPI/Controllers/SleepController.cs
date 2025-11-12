@@ -3,20 +3,34 @@ using WellTrackAPI.Data;
 using WellTrackAPI.Models;
 using WellTrackAPI.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace WellTrackAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class SleepController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         public SleepController(ApplicationDbContext context) => _context = context;
+        
+        private int GetUserId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null)
+                throw new UnauthorizedAccessException("Invalid token: user ID not found.");
+
+            return int.Parse(userIdClaim);
+        }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
+            int userId = GetUserId();
             var sleeps = await _context.SleepEntries
+                .Where(s => s.UserId == userId)
                 .Select(s => new SleepEntryDto
                 {
                     Id = s.Id,
@@ -31,7 +45,8 @@ namespace WellTrackAPI.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var entry = await _context.SleepEntries.FindAsync(id);
+            int userId = GetUserId();
+            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
             if (entry == null) return NotFound();
 
             return Ok(new SleepEntryDto
@@ -47,12 +62,14 @@ namespace WellTrackAPI.Controllers
         public async Task<IActionResult> Create([FromBody] CreateSleepEntryDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
+            int userId = GetUserId();
 
             var entry = new SleepEntry
             {
                 Hours = dto.Hours,
                 Quality = dto.Quality,
-                Date = DateTime.Now
+                Date = DateTime.Now,
+                UserId = userId
             };
 
             _context.SleepEntries.Add(entry);
@@ -73,8 +90,9 @@ namespace WellTrackAPI.Controllers
         public async Task<IActionResult> Update(int id, [FromBody] UpdateSleepEntryDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            var entry = await _context.SleepEntries.FindAsync(id);
+            int userId = GetUserId();
+    
+            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
             if (entry == null) return NotFound();
 
             entry.Hours = dto.Hours;
@@ -87,7 +105,8 @@ namespace WellTrackAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var entry = await _context.SleepEntries.FindAsync(id);
+            int userId = GetUserId();
+            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
             if (entry == null) return NotFound();
 
             _context.SleepEntries.Remove(entry);
