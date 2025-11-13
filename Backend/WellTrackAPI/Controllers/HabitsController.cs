@@ -1,117 +1,86 @@
-using Microsoft.AspNetCore.Authorization;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using WellTrackAPI.Data;
 using WellTrackAPI.Models;
 using WellTrackAPI.Models.DTOs;
 
 namespace WellTrackAPI.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // applies to all routes in this controller
-    public class HabitsController : ControllerBase
+    public class HabitsController : BaseApiController
     {
         private readonly ApplicationDbContext _context;
-        public HabitsController(ApplicationDbContext context) => _context = context;
+        private readonly IMapper _mapper;
+        private readonly ILogger<HabitsController> _logger;
 
-        private int GetUserId()
+        public HabitsController(ApplicationDbContext context, IMapper mapper, ILogger<HabitsController> logger)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null)
-                throw new UnauthorizedAccessException("Invalid token: user ID not found.");
-
-            return int.Parse(userIdClaim);
+            _context = context;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-
             var habits = await _context.HabitEntries
-                .Where(h => h.UserId == userId)
-                .Select(h => new HabitEntryDto
-                {
-                    Id = h.Id,
-                    HabitName = h.HabitName,
-                    Completed = h.Completed
-                })
-                .ToListAsync();
+                .AsNoTracking()
+                .Where(h => h.UserId == UserId)
+                .OrderByDescending(h => h.Date)
+                .ToListAsync(cancellationToken);
 
-            return Ok(habits);
+            return Ok(_mapper.Map<IEnumerable<HabitEntryDto>>(habits));
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
+            var habit = await _context.HabitEntries
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.Id == id && h.UserId == UserId, cancellationToken);
 
-            var habit = await _context.HabitEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
             if (habit == null) return NotFound();
 
-            return Ok(new HabitEntryDto
-            {
-                Id = habit.Id,
-                HabitName = habit.HabitName,
-                Completed = habit.Completed
-            });
+            return Ok(_mapper.Map<HabitEntryDto>(habit));
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateHabitEntryDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateHabitEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            int userId = GetUserId();
-
-            var habit = new HabitEntry
-            {
-                HabitName = dto.HabitName,
-                Completed = false,
-                Date = DateTime.Now,
-                UserId = userId
-            };
+            var habit = _mapper.Map<HabitEntry>(dto);
+            habit.UserId = UserId;
 
             _context.HabitEntries.Add(habit);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            return CreatedAtAction(nameof(GetById), new { id = habit.Id }, new HabitEntryDto
-            {
-                Id = habit.Id,
-                HabitName = habit.HabitName,
-                Completed = habit.Completed
-            });
+            return CreatedAtAction(nameof(GetById), new { id = habit.Id }, _mapper.Map<HabitEntryDto>(habit));
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateHabitEntryDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateHabitEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
 
-            var habit = await _context.HabitEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
+            var habit = await _context.HabitEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == UserId, cancellationToken);
             if (habit == null) return NotFound();
 
-            habit.HabitName = dto.HabitName;
-            habit.Completed = dto.Completed;
+            _mapper.Map(dto, habit);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-
-            var habit = await _context.HabitEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
+            var habit = await _context.HabitEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == UserId, cancellationToken);
             if (habit == null) return NotFound();
 
             _context.HabitEntries.Remove(habit);
-            await _context.SaveChangesAsync();
-
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
     }

@@ -1,116 +1,86 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.Models;
 using WellTrackAPI.Models.DTOs;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 
 namespace WellTrackAPI.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
-    public class SleepController : ControllerBase
+    public class SleepController : BaseApiController
     {
         private readonly ApplicationDbContext _context;
-        public SleepController(ApplicationDbContext context) => _context = context;
-        
-        private int GetUserId()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null)
-                throw new UnauthorizedAccessException("Invalid token: user ID not found.");
+        private readonly IMapper _mapper;
+        private readonly ILogger<SleepController> _logger;
 
-            return int.Parse(userIdClaim);
+        public SleepController(ApplicationDbContext context, IMapper mapper, ILogger<SleepController> logger)
+        {
+            _context = context;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
             var sleeps = await _context.SleepEntries
-                .Where(s => s.UserId == userId)
-                .Select(s => new SleepEntryDto
-                {
-                    Id = s.Id,
-                    Hours = s.Hours,
-                    Quality = s.Quality,
-                    Date = s.Date
-                }).ToListAsync();
+                .AsNoTracking()
+                .Where(s => s.UserId == UserId)
+                .OrderByDescending(s => s.Date)
+                .ToListAsync(cancellationToken);
 
-            return Ok(sleeps);
+            return Ok(_mapper.Map<IEnumerable<SleepEntryDto>>(sleeps));
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+            var entry = await _context.SleepEntries
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == id && s.UserId == UserId, cancellationToken);
+
             if (entry == null) return NotFound();
 
-            return Ok(new SleepEntryDto
-            {
-                Id = entry.Id,
-                Hours = entry.Hours,
-                Quality = entry.Quality,
-                Date = entry.Date
-            });
+            return Ok(_mapper.Map<SleepEntryDto>(entry));
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateSleepEntryDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateSleepEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
 
-            var entry = new SleepEntry
-            {
-                Hours = dto.Hours,
-                Quality = dto.Quality,
-                Date = DateTime.Now,
-                UserId = userId
-            };
+            var entry = _mapper.Map<SleepEntry>(dto);
+            entry.UserId = UserId;
 
             _context.SleepEntries.Add(entry);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            var result = new SleepEntryDto
-            {
-                Id = entry.Id,
-                Hours = entry.Hours,
-                Quality = entry.Quality,
-                Date = entry.Date
-            };
-
-            return CreatedAtAction(nameof(GetById), new { id = entry.Id }, result);
+            return CreatedAtAction(nameof(GetById), new { id = entry.Id }, _mapper.Map<SleepEntryDto>(entry));
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateSleepEntryDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateSleepEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
-    
-            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+
+            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == UserId, cancellationToken);
             if (entry == null) return NotFound();
 
-            entry.Hours = dto.Hours;
-            entry.Quality = dto.Quality;
+            _mapper.Map(dto, entry);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+            var entry = await _context.SleepEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == UserId, cancellationToken);
             if (entry == null) return NotFound();
 
             _context.SleepEntries.Remove(entry);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
     }

@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -19,27 +18,27 @@ namespace WellTrackAPI.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly JWTSettings _jwtSettings;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(ApplicationDbContext context, JWTSettings jwtSettings)
+        public AuthController(ApplicationDbContext context, JWTSettings jwtSettings, ILogger<AuthController> logger)
         {
             _context = context;
             _jwtSettings = jwtSettings;
+            _logger = logger;
         }
 
         // POST: api/auth/register
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
+        public async Task<IActionResult> Register([FromBody] RegisterDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // normalize email
             var email = dto.Email.Trim().ToLowerInvariant();
-
-            if (await _context.Users.AnyAsync(u => u.Email.ToLower() == email))
+            if (await _context.Users.AnyAsync(u => u.Email.ToLower() == email, cancellationToken))
                 return BadRequest(new { message = "Email already registered." });
 
-            if (await _context.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.Trim().ToLowerInvariant()))
+            if (await _context.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.Trim().ToLowerInvariant(), cancellationToken))
                 return BadRequest(new { message = "Username already taken." });
 
             CreatePasswordHash(dto.Password, out byte[] hash, out byte[] salt);
@@ -55,25 +54,25 @@ namespace WellTrackAPI.Controllers
             };
 
             _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            // do not return password/salt
-            return CreatedAtAction(nameof(GetMe), null, new { id = user.Id, username = user.Username, email = user.Email });
+            // Return safe user info (do not return password data)
+            var result = new { id = user.Id, username = user.Username, email = user.Email };
+            return Ok(result);
         }
 
         // POST: api/auth/login
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        public async Task<IActionResult> Login([FromBody] LoginDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             var email = dto.Email.Trim().ToLowerInvariant();
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email, cancellationToken);
             if (user == null)
                 return Unauthorized(new { message = "Invalid email or password." });
 
-            // retrieve stored hash and salt
             byte[] storedHash;
             byte[] storedSalt;
             try
@@ -83,6 +82,7 @@ namespace WellTrackAPI.Controllers
             }
             catch
             {
+                _logger.LogError("Invalid password storage format for user {UserId}", user.Id);
                 return StatusCode(500, new { message = "User password format invalid." });
             }
 
@@ -107,7 +107,7 @@ namespace WellTrackAPI.Controllers
 
         // GET: api/auth/me
         [HttpGet("me")]
-        [Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<IActionResult> GetMe()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

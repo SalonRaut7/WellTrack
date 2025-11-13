@@ -1,120 +1,89 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.Models;
 using WellTrackAPI.Models.DTOs;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 
 namespace WellTrackAPI.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
-    public class MoodController : ControllerBase
+    public class MoodController : BaseApiController
     {
         private readonly ApplicationDbContext _context;
-        public MoodController(ApplicationDbContext context) => _context = context;
-        private int GetUserId()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null)
-                throw new UnauthorizedAccessException("Invalid token: user ID not found.");
+        private readonly IMapper _mapper;
+        private readonly ILogger<MoodController> _logger;
 
-            return int.Parse(userIdClaim);
+        public MoodController(ApplicationDbContext context, IMapper mapper, ILogger<MoodController> logger)
+        {
+            _context = context;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
             var moods = await _context.MoodEntries
-                .Where(m => m.UserId == userId)
-                .Select(m => new MoodEntryDto
-                {
-                    Id = m.Id,
-                    Mood = m.Mood,
-                    Notes = m.Notes,
-                    Date = m.Date
-                }).ToListAsync();
+                .AsNoTracking()
+                .Where(m => m.UserId == UserId)
+                .OrderByDescending(m => m.Date)
+                .ToListAsync(cancellationToken);
 
-            return Ok(moods);
+            var result = _mapper.Map<IEnumerable<MoodEntryDto>>(moods);
+            return Ok(result);
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-            var mood = await _context.MoodEntries.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
+            var mood = await _context.MoodEntries
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.Id == id && m.UserId == UserId, cancellationToken);
+
             if (mood == null) return NotFound();
 
-            return Ok(new MoodEntryDto
-            {
-                Id = mood.Id,
-                Mood = mood.Mood,
-                Notes = mood.Notes,
-                Date = mood.Date
-            });
+            return Ok(_mapper.Map<MoodEntryDto>(mood));
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateMoodEntryDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateMoodEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
 
-            var mood = new MoodEntry
-            {
-                Mood = dto.Mood,
-                Notes = dto.Notes ?? string.Empty,
-                Date = DateTime.Now,
-                UserId = userId
-            };
+            var mood = _mapper.Map<MoodEntry>(dto);
+            mood.UserId = UserId;
 
             _context.MoodEntries.Add(mood);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            var result = new MoodEntryDto
-            {
-                Id = mood.Id,
-                Mood = mood.Mood,
-                Notes = mood.Notes,
-                Date = mood.Date
-            };
-
+            var result = _mapper.Map<MoodEntryDto>(mood);
             return CreatedAtAction(nameof(GetById), new { id = mood.Id }, result);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateMoodEntryDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateMoodEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
 
+            var existing = await _context.MoodEntries.FirstOrDefaultAsync(m => m.Id == id && m.UserId == UserId, cancellationToken);
+            if (existing == null) return NotFound();
 
-            var mood = await _context.MoodEntries.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
-            if (mood == null) return NotFound();
+            _mapper.Map(dto, existing);
 
-            mood.Mood = dto.Mood;
-            mood.Notes = dto.Notes ?? string.Empty;
-
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
+            var existing = await _context.MoodEntries.FirstOrDefaultAsync(m => m.Id == id && m.UserId == UserId, cancellationToken);
+            if (existing == null) return NotFound();
 
-            var mood = await _context.MoodEntries.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
-            if (mood == null) return NotFound();
-
-            _context.MoodEntries.Remove(mood);
-            await _context.SaveChangesAsync();
-
+            _context.MoodEntries.Remove(existing);
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
     }
 }
-

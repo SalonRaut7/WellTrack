@@ -1,109 +1,87 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.Models;
 using WellTrackAPI.Models.DTOs;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
 
 namespace WellTrackAPI.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // applies to all routes in this controller
-    public class HydrationController : ControllerBase
+    public class HydrationController : BaseApiController
     {
         private readonly ApplicationDbContext _context;
-        public HydrationController(ApplicationDbContext context) => _context = context;
+        private readonly IMapper _mapper;
+        private readonly ILogger<HydrationController> _logger;
 
-        private int GetUserId()
+        public HydrationController(ApplicationDbContext context, IMapper mapper, ILogger<HydrationController> logger)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null)
-                throw new UnauthorizedAccessException("Invalid token: user ID not found.");
-
-            return int.Parse(userIdClaim);
+            _context = context;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
             var entries = await _context.HydrationEntries
-                .Where(h => h.UserId == userId)
-                .Select(h => new HydrationEntryDto
-                {
-                    Id = h.Id,
-                    WaterIntakeLiters = h.WaterIntakeLiters,
-                    Date = h.Date
-                }).ToListAsync();
+                .AsNoTracking()
+                .Where(h => h.UserId == UserId)
+                .OrderByDescending(h => h.Date)
+                .ToListAsync(cancellationToken);
 
-            return Ok(entries);
+            return Ok(_mapper.Map<IEnumerable<HydrationEntryDto>>(entries));
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-            var entry = await _context.HydrationEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
+            var entry = await _context.HydrationEntries
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.Id == id && h.UserId == UserId, cancellationToken);
+
             if (entry == null) return NotFound();
 
-            return Ok(new HydrationEntryDto
-            {
-                Id = entry.Id,
-                WaterIntakeLiters = entry.WaterIntakeLiters,
-                Date = entry.Date
-            });
+            return Ok(_mapper.Map<HydrationEntryDto>(entry));
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateHydrationEntryDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateHydrationEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
-            var entry = new HydrationEntry
-            {
-                WaterIntakeLiters = dto.WaterIntakeLiters,
-                Date = DateTime.Now,
-                UserId = userId
-            };
+
+            var entry = _mapper.Map<HydrationEntry>(dto);
+            entry.UserId = UserId;
 
             _context.HydrationEntries.Add(entry);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            var result = new HydrationEntryDto
-            {
-                Id = entry.Id,
-                WaterIntakeLiters = entry.WaterIntakeLiters,
-                Date = entry.Date
-            };
-
+            var result = _mapper.Map<HydrationEntryDto>(entry);
             return CreatedAtAction(nameof(GetById), new { id = entry.Id }, result);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateHydrationEntryDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateHydrationEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
-            var entry = await _context.HydrationEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
+
+            var entry = await _context.HydrationEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == UserId, cancellationToken);
             if (entry == null) return NotFound();
 
-            entry.WaterIntakeLiters = dto.WaterIntakeLiters;
+            _mapper.Map(dto, entry);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-            var entry = await _context.HydrationEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
+            var entry = await _context.HydrationEntries.FirstOrDefaultAsync(h => h.Id == id && h.UserId == UserId, cancellationToken);
             if (entry == null) return NotFound();
 
             _context.HydrationEntries.Remove(entry);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
     }

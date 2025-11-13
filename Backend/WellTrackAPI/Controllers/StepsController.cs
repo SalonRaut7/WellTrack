@@ -1,114 +1,86 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.Models;
 using WellTrackAPI.Models.DTOs;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 
 namespace WellTrackAPI.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
-    public class StepsController : ControllerBase
+    public class StepsController : BaseApiController
     {
         private readonly ApplicationDbContext _context;
-        public StepsController(ApplicationDbContext context) => _context = context;
+        private readonly IMapper _mapper;
+        private readonly ILogger<StepsController> _logger;
 
-        private int GetUserId()
+        public StepsController(ApplicationDbContext context, IMapper mapper, ILogger<StepsController> logger)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userIdClaim == null)
-                throw new UnauthorizedAccessException("Invalid token: user ID not found.");
-
-            return int.Parse(userIdClaim);
+            _context = context;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
             var steps = await _context.StepsEntries
-                .Where(s => s.UserId == userId)
-                .Select(s => new StepsEntryDto
-                {
-                    Id = s.Id,
-                    Steps = s.Steps,
-                    ActivityType = s.ActivityType,
-                    Date = s.Date
-                }).ToListAsync();
+                .AsNoTracking()
+                .Where(s => s.UserId == UserId)
+                .OrderByDescending(s => s.Date)
+                .ToListAsync(cancellationToken);
 
-            return Ok(steps);
+            return Ok(_mapper.Map<IEnumerable<StepsEntryDto>>(steps));
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-            var entry = await _context.StepsEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+            var entry = await _context.StepsEntries
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == id && s.UserId == UserId, cancellationToken);
+
             if (entry == null) return NotFound();
 
-            return Ok(new StepsEntryDto
-            {
-                Id = entry.Id,
-                Steps = entry.Steps,
-                ActivityType = entry.ActivityType,
-                Date = entry.Date
-            });
+            return Ok(_mapper.Map<StepsEntryDto>(entry));
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateStepsEntryDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateStepsEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
-            var entry = new StepsEntry
-            {
-                Steps = dto.Steps,
-                ActivityType = dto.ActivityType,
-                Date = DateTime.Now,
-                UserId = userId
-            };
+
+            var entry = _mapper.Map<StepsEntry>(dto);
+            entry.UserId = UserId;
 
             _context.StepsEntries.Add(entry);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            var result = new StepsEntryDto
-            {
-                Id = entry.Id,
-                Steps = entry.Steps,
-                ActivityType = entry.ActivityType,
-                Date = entry.Date
-            };
-
-            return CreatedAtAction(nameof(GetById), new { id = entry.Id }, result);
+            return CreatedAtAction(nameof(GetById), new { id = entry.Id }, _mapper.Map<StepsEntryDto>(entry));
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateStepsEntryDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateStepsEntryDto dto, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            int userId = GetUserId();
-            var entry = await _context.StepsEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+
+            var entry = await _context.StepsEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == UserId, cancellationToken);
             if (entry == null) return NotFound();
 
-            entry.Steps = dto.Steps;
-            entry.ActivityType = dto.ActivityType;
+            _mapper.Map(dto, entry);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            int userId = GetUserId();
-            var entry = await _context.StepsEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+            var entry = await _context.StepsEntries.FirstOrDefaultAsync(s => s.Id == id && s.UserId == UserId, cancellationToken);
             if (entry == null) return NotFound();
 
             _context.StepsEntries.Remove(entry);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
     }

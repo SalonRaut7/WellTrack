@@ -1,16 +1,33 @@
-using Microsoft.EntityFrameworkCore;
-using WellTrackAPI.Data;
-using WellTrackAPI.Settings;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using AutoMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using WellTrackAPI.Data;
+using WellTrackAPI.Middleware;
+using WellTrackAPI.Settings;
+using WellTrackAPI.Mapping;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure strongly-typed JWT settings via Options
+builder.Services.Configure<JWTSettings>(builder.Configuration.GetSection("JWTSettings"));
+builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<JWTSettings>>().Value);
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(MappingProfile));
+
+// Add services to the container
+builder.Services.AddControllers();
+
+// Configure PostgreSQL with EF Core
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Configure authentication using JWT settings from IOptions
 var jwtSettings = builder.Configuration.GetSection("JWTSettings").Get<JWTSettings>()
                   ?? throw new InvalidOperationException("JWTSettings section is missing in appsettings.json");
-
-builder.Services.AddSingleton(jwtSettings);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -31,26 +48,19 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
-// Add services to the container
-builder.Services.AddControllers();
-
-// Configure PostgreSQL with EF Core
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Enable CORS for React frontend
+// Enable CORS for React frontend (dev). Use configuration/env for production.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ReactAppPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173") // React dev server URL
+        policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
-// Add Swagger/OpenAPI
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -61,7 +71,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for WellTrack wellness tracking app"
     });
 
-    // Enable JWT authentication in Swagger
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",
@@ -87,23 +96,23 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
 var app = builder.Build();
 
-// Configure middleware
+// Middleware pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Global error handling middleware (first middleware)
+app.UseMiddleware<ErrorHandlingMiddleware>();
+
 app.UseHttpsRedirection();
 
-// Enable CORS
 app.UseCors("ReactAppPolicy");
 
 app.UseAuthentication();
-
 app.UseAuthorization();
 
 app.MapControllers();

@@ -1,5 +1,10 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+
 namespace WellTrackAPI.Models
 {
+    [Index(nameof(Email), IsUnique = true)]
+    [Index(nameof(Username), IsUnique = true)]
     public class User
     {
         public int Id { get; set; }
@@ -8,9 +13,8 @@ namespace WellTrackAPI.Models
         public string PasswordHash { get; set; } = string.Empty;
         public string PasswordSalt { get; set; } = string.Empty;
         public bool EmailConfirmed { get; set; } = false;
-        public string Role { get; set; } = "User"; // default role
+        public string Role { get; set; } = "User";
 
-       // Navigation properties
         public ICollection<HabitEntry> HabitEntries { get; set; } = new List<HabitEntry>();
         public ICollection<HydrationEntry> HydrationEntries { get; set; } = new List<HydrationEntry>();
         public ICollection<MoodEntry> MoodEntries { get; set; } = new List<MoodEntry>();
