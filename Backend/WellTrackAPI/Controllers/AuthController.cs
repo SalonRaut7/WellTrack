@@ -1,14 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using WellTrackAPI.Data;
-using WellTrackAPI.Models;
-using WellTrackAPI.Models.DTOs;
-using WellTrackAPI.Settings;
+using WellTrackAPI.DTOs;
+using WellTrackAPI.Services;
 
 namespace WellTrackAPI.Controllers
 {
@@ -16,155 +8,66 @@ namespace WellTrackAPI.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly JWTSettings _jwtSettings;
-        private readonly ILogger<AuthController> _logger;
+        private readonly IAuthService _auth;
+        public AuthController(IAuthService auth) => _auth = auth;
 
-        public AuthController(ApplicationDbContext context, JWTSettings jwtSettings, ILogger<AuthController> logger)
-        {
-            _context = context;
-            _jwtSettings = jwtSettings;
-            _logger = logger;
-        }
-
-        // POST: api/auth/register
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterDto dto, CancellationToken cancellationToken)
+        public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var email = dto.Email.Trim().ToLowerInvariant();
-            if (await _context.Users.AnyAsync(u => u.Email.ToLower() == email, cancellationToken))
-                return BadRequest(new { message = "Email already registered." });
-
-            if (await _context.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.Trim().ToLowerInvariant(), cancellationToken))
-                return BadRequest(new { message = "Username already taken." });
-
-            CreatePasswordHash(dto.Password, out byte[] hash, out byte[] salt);
-
-            var user = new User
-            {
-                Username = dto.Username.Trim(),
-                Email = email,
-                PasswordHash = Convert.ToBase64String(hash),
-                PasswordSalt = Convert.ToBase64String(salt),
-                Role = "User",
-                EmailConfirmed = false
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync(cancellationToken);
-
-            // Return safe user info (do not return password data)
-            var result = new { id = user.Id, username = user.Username, email = user.Email };
-            return Ok(result);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var (succeeded,userId, errors) = await _auth.RegisterAsync(model, ip);
+            if (!succeeded) return BadRequest(new { errors });
+            return Ok(new { userId, message = "Registered. Check email for OTP to verify." });
         }
 
-        // POST: api/auth/login
+        [HttpPost("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromQuery] string userId, [FromQuery] string code)
+        {
+            var ok = await _auth.VerifyEmailOtpAsync(userId, code);
+            if (!ok) return BadRequest(new { message = "Invalid or expired code." });
+            return Ok(new { message = "Email verified" });
+        }
+
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto dto, CancellationToken cancellationToken)
+        public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var email = dto.Email.Trim().ToLowerInvariant();
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email, cancellationToken);
-            if (user == null)
-                return Unauthorized(new { message = "Invalid email or password." });
-
-            byte[] storedHash;
-            byte[] storedSalt;
-            try
-            {
-                storedHash = Convert.FromBase64String(user.PasswordHash);
-                storedSalt = Convert.FromBase64String(user.PasswordSalt);
-            }
-            catch
-            {
-                _logger.LogError("Invalid password storage format for user {UserId}", user.Id);
-                return StatusCode(500, new { message = "User password format invalid." });
-            }
-
-            if (!VerifyPassword(dto.Password, storedHash, storedSalt))
-                return Unauthorized(new { message = "Invalid email or password." });
-
-            var token = GenerateJwtToken(user);
-
-            return Ok(new
-            {
-                accessToken = token,
-                expiresInMinutes = _jwtSettings.ExpiryMinutes,
-                user = new
-                {
-                    id = user.Id,
-                    username = user.Username,
-                    email = user.Email,
-                    role = user.Role
-                }
-            });
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var (access, refresh, error) = await _auth.LoginAsync(model, ip);
+            if (error != null) return BadRequest(new { message = error });
+            return Ok(new { access, refresh });
         }
 
-        // GET: api/auth/me
-        [HttpGet("me")]
-        [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<IActionResult> GetMe()
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh([FromBody] string refreshToken)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!int.TryParse(userIdClaim, out var userId))
-                return Unauthorized();
-
-            var user = await _context.Users
-                .AsNoTracking()
-                .Where(u => u.Id == userId)
-                .Select(u => new { u.Id, u.Username, u.Email, u.Role, u.EmailConfirmed })
-                .FirstOrDefaultAsync();
-
-            if (user == null) return NotFound();
-
-            return Ok(user);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var (access, error) = await _auth.RefreshTokenAsync(refreshToken, ip);
+            if (error != null) return BadRequest(new { message = error });
+            return Ok(new { access });
         }
 
-        #region Helpers
-
-        private string GenerateJwtToken(User user)
+        [HttpPost("revoke")]
+        public async Task<IActionResult> Revoke([FromBody] string refreshToken)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Name, user.Username ?? string.Empty),
-                new Claim(ClaimTypes.Role, user.Role ?? "User")
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: _jwtSettings.Issuer,
-                audience: _jwtSettings.Audience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes),
-                signingCredentials: creds
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var ok = await _auth.RevokeRefreshTokenAsync(refreshToken, ip);
+            if (!ok) return BadRequest(new { message = "Token not found or already revoked." });
+            return Ok(new { message = "Revoked" });
+        }
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] string email)
+        {
+            await _auth.SendPasswordResetOtpAsync(email);
+            return Ok(new { message = "OTP sent to email." });
         }
 
-        private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromQuery] string email, [FromQuery] string code, [FromQuery] string newPassword)
         {
-            using var hmac = new HMACSHA512();
-            passwordSalt = hmac.Key;
-            passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            var ok = await _auth.ResetPasswordAsync(email, code, newPassword);
+            if (!ok) return BadRequest(new { message = "Invalid code or email." });
+            return Ok(new { message = "Password reset successful." });
         }
 
-        private bool VerifyPassword(string password, byte[] storedHash, byte[] storedSalt)
-        {
-            using var hmac = new HMACSHA512(storedSalt);
-            var computed = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return computed.SequenceEqual(storedHash);
-        }
-
-        #endregion
     }
 }

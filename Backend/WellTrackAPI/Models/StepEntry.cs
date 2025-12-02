@@ -1,10 +1,10 @@
 namespace WellTrackAPI.Models
 {
-    public class HabitEntry
+    public class StepEntry
     {
         public int Id { get; set; }
-        public string Name { get; set; } = null!;
-        public bool Completed { get; set; }
+        public int StepsCount { get; set; }
+        public string? ActivityType { get; set; } // Walking, Jogging, etc.
         public DateTime Date { get; set; } = DateTime.UtcNow;
 
         public string UserId { get; set; } = null!;
