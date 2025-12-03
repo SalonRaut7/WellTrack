@@ -22,15 +22,22 @@ namespace WellTrackAPI.Controllers
         [HttpGet("users")]
         public IActionResult GetUsers()
         {
-            var users = _userManager.Users.Select(u => new
+            var users = _userManager.Users.ToList();
+            var result = new List<object>();
+            foreach (var user in users)
             {
-                u.Id,
-                u.Email,
-                u.UserName,
-                u.Name,
-                u.EmailConfirmed
-            }).ToList();
-            return Ok(users);
+                var roles = _userManager.GetRolesAsync(user).Result;
+                result.Add(new
+                {
+                    user.Id,
+                    user.Email,
+                    user.Name,
+                    user.UserName,
+                    user.EmailConfirmed,
+                    Roles = roles
+                });
+            }
+            return Ok(result);
         }
 
         [HttpPost("assign-role")]

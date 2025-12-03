@@ -1,92 +1,3 @@
-
-// using Microsoft.AspNetCore.Authentication.JwtBearer;
-// using Microsoft.AspNetCore.Identity;
-// using Microsoft.EntityFrameworkCore;
-// using Microsoft.IdentityModel.Tokens;
-// using System.Text;
-// using WellTrackAPI.Data;
-// using WellTrackAPI.Models;
-// using WellTrackAPI.Services;
-// using Microsoft.OpenApi;
-
-// var builder = WebApplication.CreateBuilder(args);
-
-// // PostgreSQL
-// builder.Services.AddDbContext<ApplicationDbContext>(options =>
-//     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// //Auto-Mapper
-// builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-
-// // Identity
-// builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
-//     .AddEntityFrameworkStores<ApplicationDbContext>()
-//     .AddDefaultTokenProviders();
-
-// // JWT
-// var jwtSettings = builder.Configuration.GetSection("Jwt");
-// builder.Services.AddAuthentication(options =>
-// {
-//     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-//     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-// })
-// .AddJwtBearer(options =>
-// {
-//     options.TokenValidationParameters = new TokenValidationParameters
-//     {
-//         ValidateIssuer = true,
-//         ValidateAudience = true,
-//         ValidateLifetime = true,
-//         ValidateIssuerSigningKey = true,
-//         ValidIssuer = jwtSettings["Issuer"],
-//         ValidAudience = jwtSettings["Audience"],
-//         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key is missing")))
-//     };
-// });
-
-// // Controllers
-// builder.Services.AddControllers();
-
-// // Swagger/OpenAPI
-// builder.Services.AddEndpointsApiExplorer();
-// builder.Services.AddSwaggerGen(c =>
-// {
-//     c.SwaggerDoc("v1", new OpenApiInfo
-//     {
-//         Title = "WellTrack API",
-//         Version = "v1"
-//     });
-// });
-
-
-// // Register Services
-// builder.Services.AddScoped<IMoodService, MoodService>();
-// builder.Services.AddScoped<ISleepService, SleepService>();
-// builder.Services.AddScoped<IHydrationService, HydrationService>();
-// builder.Services.AddScoped<IStepService, StepService>();
-// builder.Services.AddScoped<IHabitService, HabitService>();
-// builder.Services.AddScoped<IAuthService, AuthService>();
-// builder.Services.AddScoped<IEmailService, EmailService>();
-// builder.Services.AddScoped<ITokenService, TokenService>();
-
-
-// var app = builder.Build();
-
-// // Middleware
-// app.UseSwagger();
-// app.UseSwaggerUI(c =>
-// {
-//     c.SwaggerEndpoint("/swagger/v1/swagger.json", "WellTrack API v1");
-// });
-
-// app.UseHttpsRedirection();
-// app.UseAuthentication();
-// app.UseAuthorization();
-
-// app.MapControllers();
-
-// app.Run();
-
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -192,6 +103,10 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
+
+//call seed admin
+await SeedData.SeedAdminAsync(app.Services);
+
 
 // Middleware
 app.UseSwagger();
