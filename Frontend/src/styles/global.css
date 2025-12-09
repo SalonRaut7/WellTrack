@@ -1,7 +1,14 @@
+/* eslint-disable */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* small global tweaks */
+html,body,#root {
+  height: 100%;
+}
 body {
-  @apply bg-gray-50 text-gray-900;
+  background-color: #f3f4f6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
