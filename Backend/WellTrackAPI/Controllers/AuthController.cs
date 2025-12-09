@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
 using WellTrackAPI.DTOs;
+using WellTrackAPI.Models;
 using WellTrackAPI.Services;
 
 namespace WellTrackAPI.Controllers
@@ -9,7 +11,14 @@ namespace WellTrackAPI.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _auth;
-        public AuthController(IAuthService auth) => _auth = auth;
+        private readonly UserManager<ApplicationUser> _userManager;
+        
+        public AuthController(IAuthService auth, UserManager<ApplicationUser> userManager)
+        {
+            _auth = auth;
+            _userManager = userManager;
+        }
+
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
@@ -57,6 +66,10 @@ namespace WellTrackAPI.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] string email)
         {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                return NotFound(new { message = "Email is not registered." });
+
             await _auth.SendPasswordResetOtpAsync(email);
             return Ok(new { message = "OTP sent to email." });
         }
@@ -68,6 +81,35 @@ namespace WellTrackAPI.Controllers
             if (!ok) return BadRequest(new { message = "Invalid code or email." });
             return Ok(new { message = "Password reset successful." });
         }
+        [HttpPost("resend-otp")]
+        public async Task<IActionResult> ResendOtp([FromBody] string email)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                return NotFound(new { message = "Email is not registered." });
+
+            await _auth.SendEmailOtpAsync(user.Id, user.Email!);
+            return Ok(new { message = "OTP resent successfully." });
+        }
+        [HttpPost("resend-reset-otp")]
+        public async Task<IActionResult> ResendResetOtp([FromBody] string email)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                return NotFound(new { message = "Email is not registered." });
+
+            await _auth.SendPasswordResetOtpAsync(email); // same as forgot-password
+            return Ok(new { message = "Password reset OTP resent successfully." });
+        }
+        [HttpPost("verify-reset-otp")]
+        public async Task<IActionResult> VerifyResetOtp([FromQuery] string email, [FromQuery] string code)
+        {
+            var ok = await _auth.VerifyPasswordResetOtpAsync(email, code);
+            if (!ok) return BadRequest(new { message = "Invalid or expired OTP." });
+            return Ok(new { message = "OTP verified successfully." });
+        }
+
+
 
     }
 }

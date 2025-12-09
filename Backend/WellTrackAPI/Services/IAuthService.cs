@@ -12,5 +12,6 @@ namespace WellTrackAPI.Services
         Task<bool> VerifyEmailOtpAsync(string userId, string code);
         Task SendPasswordResetOtpAsync(string email);
         Task<bool> ResetPasswordAsync(string email, string code, string newPassword);
+        Task<bool> VerifyPasswordResetOtpAsync(string email, string code);
     }
 }

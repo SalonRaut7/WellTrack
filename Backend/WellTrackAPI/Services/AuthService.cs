@@ -29,6 +29,10 @@ namespace WellTrackAPI.Services
             _emailService = emailService;
         }
 
+        public async Task<bool> DoesUserExist(string email)
+        {
+            return await _userManager.FindByEmailAsync(email) != null;
+        }
         public async Task<(bool Succeeded, string? UserId, IEnumerable<string>? Errors)> RegisterAsync(RegisterModel model, string originIp)
         {
             var user = new ApplicationUser
@@ -140,7 +144,7 @@ namespace WellTrackAPI.Services
         public async Task SendPasswordResetOtpAsync(string email)
         {
             var user = await _userManager.FindByEmailAsync(email);
-            if (user == null) return; // optionally return false if you want
+            if (user == null) return; 
 
             var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
             var otp = new EmailOtp
@@ -148,33 +152,53 @@ namespace WellTrackAPI.Services
                 UserId = user.Id,
                 Code = code,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(15),
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Purpose = "PasswordReset" //mark purpose as password reset
             };
             _db.EmailOtps.Add(otp);
             await _db.SaveChangesAsync();
 
             await _emailService.SendEmailAsync(email, "Reset Your Password", $"Your reset code is: <b>{code}</b>. It expires in 15 minutes.");
         }
-
         public async Task<bool> ResetPasswordAsync(string email, string code, string newPassword)
         {
             var user = await _userManager.FindByEmailAsync(email);
             if (user == null) return false;
 
             var otp = await _db.EmailOtps
-                .Where(o => o.UserId == user.Id && !o.Used && o.ExpiresAt >= DateTime.UtcNow)
+                .Where(o => o.UserId == user.Id && !o.UsedForReset && o.ExpiresAt >= DateTime.UtcNow)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
 
             if (otp == null || otp.Code != code) return false;
 
-            otp.Used = true;
+            otp.UsedForReset = true; // mark as fully consumed for reset
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
 
             await _db.SaveChangesAsync();
             return result.Succeeded;
         }
+
+
+        public async Task<bool> VerifyPasswordResetOtpAsync(string email, string code)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null) return false;
+
+            var otp = await _db.EmailOtps
+                .Where(o => o.UserId == user.Id && o.Purpose == "PasswordReset" && !o.Used && o.ExpiresAt >= DateTime.UtcNow)
+                .OrderByDescending(o => o.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (otp == null || otp.Code != code) return false;
+
+            otp.Used = true;
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
+        
 
     }
 }

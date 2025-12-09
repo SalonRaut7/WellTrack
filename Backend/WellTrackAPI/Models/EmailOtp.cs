@@ -9,5 +9,8 @@ namespace WellTrackAPI.Models
         public DateTime ExpiresAt { get; set; }
         public bool Used { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public string Purpose { get; set; } = "EmailVerification";
+        public bool UsedForReset { get; set; } = false;
+
     }
 }

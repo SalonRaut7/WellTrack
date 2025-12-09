@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WellTrackAPI.Data;
@@ -11,9 +12,11 @@ using WellTrackAPI.Data;
 namespace WellTrackAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251208161524_AddOtpPurpose")]
+    partial class AddOtpPurpose
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -256,9 +259,6 @@ namespace WellTrackAPI.Migrations
                         .HasColumnType("text");
 
                     b.Property<bool>("Used")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("UsedForReset")
                         .HasColumnType("boolean");
 
                     b.Property<string>("UserId")
