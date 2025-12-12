@@ -1,8 +1,6 @@
-using Microsoft.AspNetCore.Identity;
-
-namespace WellTrackAPI.Models
+namespace WellTrackAPI.DTOs
 {
-    public class ApplicationUser : IdentityUser
+    public class UserProfileDTO
     {
         public string? Name { get; set; }
         public int? Age { get; set; }
