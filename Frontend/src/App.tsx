@@ -21,6 +21,8 @@ import VerifyOtp from "./pages/VerifyOtp";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
+import ProfilePage from "./pages/Profile";
+
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
@@ -60,6 +62,7 @@ export default function App() {
           <Route path="/hydration" element={<PrivateRoute><Hydration /></PrivateRoute>} />
           <Route path="/habits" element={<PrivateRoute><Habits /></PrivateRoute>} />
           <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         </Routes>
       </div>
     </div>
