@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Models;
 using WellTrackAPI.Services;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace WellTrackAPI.Controllers
 {
@@ -63,6 +65,7 @@ namespace WellTrackAPI.Controllers
             if (!ok) return BadRequest(new { message = "Token not found or already revoked." });
             return Ok(new { message = "Revoked" });
         }
+        
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] string email)
         {
@@ -81,6 +84,7 @@ namespace WellTrackAPI.Controllers
             if (!ok) return BadRequest(new { message = "Invalid code or email." });
             return Ok(new { message = "Password reset successful." });
         }
+
         [HttpPost("resend-otp")]
         public async Task<IActionResult> ResendOtp([FromBody] string email)
         {
@@ -91,6 +95,7 @@ namespace WellTrackAPI.Controllers
             await _auth.SendEmailOtpAsync(user.Id, user.Email!);
             return Ok(new { message = "OTP resent successfully." });
         }
+
         [HttpPost("resend-reset-otp")]
         public async Task<IActionResult> ResendResetOtp([FromBody] string email)
         {
@@ -101,6 +106,7 @@ namespace WellTrackAPI.Controllers
             await _auth.SendPasswordResetOtpAsync(email); // same as forgot-password
             return Ok(new { message = "Password reset OTP resent successfully." });
         }
+
         [HttpPost("verify-reset-otp")]
         public async Task<IActionResult> VerifyResetOtp([FromQuery] string email, [FromQuery] string code)
         {
@@ -108,8 +114,25 @@ namespace WellTrackAPI.Controllers
             if (!ok) return BadRequest(new { message = "Invalid or expired OTP." });
             return Ok(new { message = "OTP verified successfully." });
         }
+        
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> Me()
+        {
+            var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
 
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return NotFound();
 
+            var roles = await _userManager.GetRolesAsync(user);
 
+            return Ok(new
+            {
+                id = user.Id,
+                email = user.Email,
+                roles
+            });
+        }
     }
 }
