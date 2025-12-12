@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../api/axios";
 
+type UserType = { id: string; email: string; roles?: string[] }
+
 type AuthContextType = {
-  user: { id: string; email: string } | null;
+  user: UserType | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<string | void>;
   logout: () => void;
+  getUserRoles: () => Promise<string[]>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (email: string, code: string, newPassword: string) => Promise<boolean>;
   isAuthenticated: boolean;
@@ -21,15 +24,13 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Only set "user" when actually logged in.
-  const [user, setUser] = useState<{ id: string; email: string } | null>(() => {
-    const id = localStorage.getItem("userId");
-    const email = localStorage.getItem("userEmail");
-    return id && email ? { id, email } : null;
+  const [user, setUser] = useState<UserType | null>(() => {
+  const id = localStorage.getItem("userId");
+  const email = localStorage.getItem("userEmail");
+  const rolesString = localStorage.getItem("userRoles"); // <-- store roles
+  const roles = rolesString ? JSON.parse(rolesString) : [];
+  return id && email ? { id, email ,roles} : null;
   });
-
-  useEffect(() => {
-    // Optionally refresh tokens or validate on load.
-  }, []);
 
   const login = async (email: string, password: string) => {
     const resp = await api.post("/api/Auth/login", { email, password });
@@ -37,9 +38,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("accessToken", access);
     localStorage.setItem("refreshToken", refresh);
     localStorage.setItem("userEmail", email);
-    // Try to preserve userId if backend returned it previously (or keep empty until you provide /me)
-    const storedUserId = localStorage.getItem("userId") ?? "";
-    setUser({ id: storedUserId, email });
+    
+    const meResp = await api.get("/api/Auth/me", {
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    const me = meResp.data;
+    localStorage.setItem("userId", me.id);
+    setUser({ id: me.id, email: me.email, roles: me.roles });
+    localStorage.setItem("userRoles", JSON.stringify(me.roles || [])); // <-- store roles
   };
 
   const register = async (name: string, email: string, password: string) => {
@@ -73,6 +79,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await api.post("/api/Auth/forgot-password", email);
   };
 
+  const getUserRoles = async () =>{
+    if (!user) return [];
+    const resp =  await api.get(`/api/Admin/users`);
+    const me = resp.data.find((u: any) => u.email === user.email);
+    return me?.roles || [];
+  }
+
   const resetPassword = async (email: string, code: string, newPassword: string) => {
     const resp = await api.post(
       `/api/Auth/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(
@@ -81,6 +94,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
     return resp.status === 200;
   };
+  
+
+ useEffect(() => {}, []);
 
   return (
     <AuthContext.Provider
@@ -91,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         forgotPassword,
         resetPassword,
+        getUserRoles,
         isAuthenticated: !!user,
       }}
     >

@@ -17,7 +17,14 @@ export default function Login() {
     setError("");
     try {
       await login(email, password);
-      navigate("/dashboard");
+      const currentUser = JSON.parse(localStorage.getItem("userRoles") || "[]");
+      const roles = currentUser as string[];
+      if (roles.includes("Admin")) {
+        navigate("/admin");
+        return;
+      } else{
+        navigate("/dashboard");
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Invalid credentials";
       setError(msg);
