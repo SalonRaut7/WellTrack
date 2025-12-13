@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WellTrackAPI.Data;
@@ -11,9 +12,11 @@ using WellTrackAPI.Data;
 namespace WellTrackAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251213061457_AddHeightToApplicationUser")]
+    partial class AddHeightToApplicationUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -281,52 +284,6 @@ namespace WellTrackAPI.Migrations
                     b.ToTable("EmailOtps");
                 });
 
-            modelBuilder.Entity("WellTrackAPI.Models.FoodEntry", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<double>("Calories")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Carbs")
-                        .HasColumnType("double precision");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double>("Fat")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("FoodName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("MealType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("Protein")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("ServingSize")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("FoodEntries");
-                });
-
             modelBuilder.Entity("WellTrackAPI.Models.HabitEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -567,17 +524,6 @@ namespace WellTrackAPI.Migrations
                 });
 
             modelBuilder.Entity("WellTrackAPI.Models.EmailOtp", b =>
-                {
-                    b.HasOne("WellTrackAPI.Models.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("WellTrackAPI.Models.FoodEntry", b =>
                 {
                     b.HasOne("WellTrackAPI.Models.ApplicationUser", "User")
                         .WithMany()

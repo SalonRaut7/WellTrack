@@ -10,9 +10,17 @@ using WellTrackAPI.Models;
 using WellTrackAPI.Services;
 using AutoMapper;
 using Microsoft.Extensions.Options;
+using WellTrackAPI.Settings;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+// USDA API settings
+builder.Services.Configure<UsdaSettings>(builder.Configuration.GetSection("USDA"));
+
+// Register HttpClient for calling external APIs like USDA(in this case)
+builder.Services.AddHttpClient();
+
 
 // PostgreSQL (Npgsql)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

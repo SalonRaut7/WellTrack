@@ -13,6 +13,7 @@ namespace WellTrackAPI.Data
         public DbSet<HydrationEntry> HydrationEntries { get; set; } = null!;
         public DbSet<StepEntry> StepEntries { get; set; } = null!;
         public DbSet<HabitEntry> HabitEntries { get; set; } = null!;
+        public DbSet<FoodEntry> FoodEntries { get; set; } = null!;
 
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         public DbSet<EmailOtp> EmailOtps { get; set; } = null!;
@@ -50,6 +51,12 @@ namespace WellTrackAPI.Data
                 .HasOne(s => s.User)
                 .WithMany()
                 .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<FoodEntry>()
+                .HasOne(f => f.User)
+                .WithMany()
+                .HasForeignKey(f => f.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<RefreshToken>()

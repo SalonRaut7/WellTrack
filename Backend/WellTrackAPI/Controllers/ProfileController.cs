@@ -29,6 +29,13 @@ namespace WellTrackAPI.Controllers
 
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null) return NotFound();
+            
+            double? bmi = null;
+            if (user.Weight.HasValue && user.Height.HasValue && user.Height.Value > 0)
+            {
+                var heightMeters = user.Height.Value / 100.0;
+                bmi = Math.Round(user.Weight.Value / (heightMeters * heightMeters), 2);
+            }
 
             return Ok(new
             {
@@ -38,6 +45,8 @@ namespace WellTrackAPI.Controllers
                 age = user.Age,
                 gender = user.Gender,
                 weight = user.Weight,
+                height = user.Height,
+                bmi,
                 goals = user.Goals,
                 bio = user.Bio,
                 profileImageUrl = user.ProfileImageUrl
@@ -57,6 +66,7 @@ namespace WellTrackAPI.Controllers
             user.Age = dto.Age ?? user.Age;
             user.Gender = dto.Gender ?? user.Gender;
             user.Weight = dto.Weight ?? user.Weight;
+            user.Height = dto.Height ?? user.Height;
             user.Goals = dto.Goals ?? user.Goals;
             user.Bio = dto.Bio ?? user.Bio;
 

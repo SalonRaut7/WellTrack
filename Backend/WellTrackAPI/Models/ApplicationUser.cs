@@ -11,5 +11,6 @@ namespace WellTrackAPI.Models
         public string? Goals { get; set; }
         public string? Bio { get; set; }
         public string? ProfileImageUrl { get; set; }
+        public double? Height { get; set; }
     }
 }
