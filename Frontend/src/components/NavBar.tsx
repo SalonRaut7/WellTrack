@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Heart, Moon, Footprints, Droplets, CheckCircle2, BarChart3, Shield, Users, FileText } from "lucide-react";
+import { Heart, Moon, Footprints, Droplets, CheckCircle2, BarChart3, Shield, Users, FileText, Utensils } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useState, useRef } from "react";
 import api from "../api/axios";
@@ -48,6 +48,7 @@ export default function NavBar() {
     { to: "/steps", label: "Steps", icon: Footprints },
     { to: "/hydration", label: "Hydration", icon: Droplets },
     { to: "/habits", label: "Habits", icon: CheckCircle2 },
+    { to: "/food", label: "Food", icon: Utensils },
     { to: "/analytics", label: "Analytics", icon: BarChart3 },
   ];
 

@@ -22,6 +22,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
 import ProfilePage from "./pages/Profile";
+import FoodTracker from "./pages/FoodTracker";
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -63,6 +64,9 @@ export default function App() {
           <Route path="/habits" element={<PrivateRoute><Habits /></PrivateRoute>} />
           <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+
+          <Route path="/food" element={<PrivateRoute><FoodTracker /></PrivateRoute>} />
+
         </Routes>
       </div>
     </div>

@@ -10,6 +10,7 @@ type ProfileData = {
   age?: number;
   gender?: string;
   weight?: number;
+  height?: number;
   goals?: string;
   bio?: string;
   profileImageUrl?: string | null;
@@ -56,6 +57,7 @@ export default function ProfilePage() {
           age: profileResp.data.age ?? "",
           gender: profileResp.data.gender ?? "",
           weight: profileResp.data.weight ?? "",
+          height: profileResp.data.height ?? "",
           goals: profileResp.data.goals ?? "",
           bio: profileResp.data.bio ?? "",
         });
@@ -71,6 +73,11 @@ export default function ProfilePage() {
 
   const isAdmin = roles.includes("Admin");
 
+  const bmi =
+    profile?.weight && profile?.height
+      ? (profile.weight / Math.pow(profile.height / 100, 2)).toFixed(1)
+      : null;
+
   const save = async () => {
     setError(null);
     setLoading(true);
@@ -82,6 +89,7 @@ export default function ProfilePage() {
           Age: form.age ? parseInt(form.age) : null,
           Gender: form.gender || null,
           Weight: form.weight ? parseFloat(form.weight) : null,
+          Height: form.height ? parseFloat(form.height) : null,
           Goals: form.goals || null,
           Bio: form.bio || null,
         },
@@ -181,8 +189,10 @@ export default function ProfilePage() {
       setConfirmNewPassword("");
       alert("Password changed successfully.");
     } catch (err: any) {
-        const msg = err?.response?.data?.message || (err?.response?.data?.errors?.join(" | ") || "Failed to change password.");
-        setPasswordError(msg);
+      const msg =
+        err?.response?.data?.message ||
+        (err?.response?.data?.errors?.join(" | ") || "Failed to change password.");
+      setPasswordError(msg);
     } finally {
       setPasswordLoading(false);
     }
@@ -219,7 +229,7 @@ export default function ProfilePage() {
                 </div>
                 <button
                   onClick={() => {
-                    if(isAdmin) navigate("/admin");
+                    if (isAdmin) navigate("/admin");
                     else navigate("/dashboard");
                   }}
                   className="px-3 py-2 bg-gray-200 rounded"
@@ -320,6 +330,8 @@ export default function ProfilePage() {
             <Field label="Age" value={profile.age} />
             <Field label="Gender" value={profile.gender} />
             <Field label="Weight (kg)" value={profile.weight} />
+            <Field label="Height (cm)" value={profile.height} />
+            <Field label="BMI" value={bmi} />
             <Field label="Goals" value={profile.goals} />
           </div>
         </div>
@@ -335,6 +347,7 @@ export default function ProfilePage() {
               options={["Male", "Female", "Other"]}
             />
             <Input label="Weight (kg)" value={form.weight} set={(v) => setForm({ ...form, weight: v })} />
+            <Input label="Height (cm)" value={form.height} set={(v) => setForm({ ...form, height: v })} />
             <Input label="Goals" value={form.goals} set={(v) => setForm({ ...form, goals: v })} />
             <div className="col-span-2">
               <label className="block text-sm">Bio</label>
@@ -472,3 +485,4 @@ function Select({ label, value, set, options }: { label: string; value: string; 
     </div>
   );
 }
+
