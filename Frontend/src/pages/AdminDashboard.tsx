@@ -8,6 +8,7 @@ interface Stats {
   totalStepsRecords: number;
   totalHydrationRecords: number;
   totalHabitEntries: number;
+  totalFoodEntries: number;
 }
 
 export default function AdminDashboard() {
@@ -40,6 +41,7 @@ export default function AdminDashboard() {
         { title: "Steps Records", value: stats.totalStepsRecords },
         { title: "Hydration Records", value: stats.totalHydrationRecords },
         { title: "Habit Entries", value: stats.totalHabitEntries },
+        { title: "Food Entries", value: stats.totalFoodEntries },
       ]
     : [];
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/axios";
 
-type TrackerType = "Mood" | "Sleep" | "Steps" | "Hydration" | "Habits";
+type TrackerType = "Mood" | "Sleep" | "Steps" | "Hydration" | "Habits" | "Food";
 
 export default function UserDetailsPage() {
   const { id } = useParams();
@@ -37,6 +37,7 @@ export default function UserDetailsPage() {
           Steps: trackersResp.data.steps || trackersResp.data.Steps || [],
           Hydration: trackersResp.data.hydration || trackersResp.data.Hydration || [],
           Habits: trackersResp.data.habits || trackersResp.data.Habits || [],
+          Food: trackersResp.data.food || trackersResp.data.Food || [],
         });
       })
       .catch((err) => {
@@ -65,6 +66,7 @@ export default function UserDetailsPage() {
     else if (type === "Steps") setEditValues({ StepsCount: item.stepsCount, ActivityType: item.activityType, date: item.date });
     else if (type === "Hydration") setEditValues({ WaterIntakeLiters: item.waterIntakeLiters, date: item.date });
     else if (type === "Habits") setEditValues({ name: item.name, completed: item.completed, date: item.date });
+    else if (type === "Food") setEditValues({ FoodName: item.foodName, Calories: item.calories, Protein: item.protein, Carbs: item.carbs,Fat: item.fat, ServingSize: item.servingSize, MealType: item.mealType});
   };
 
   const saveEdit = async () => {
@@ -120,6 +122,18 @@ export default function UserDetailsPage() {
             Date: editValues.date ? new Date(editValues.date).toISOString() : null,
           };
           break;
+        case "Food":
+          endpoint = `/api/Admin/food/${trackerId}`;
+          payload = {
+            FoodName: editValues.FoodName,
+            Calories: parseInt(editValues.Calories),
+            Protein: parseFloat(editValues.Protein),
+            Carbs: parseFloat(editValues.Carbs),
+            Fat: parseFloat(editValues.Fat),
+            ServingSize: editValues.ServingSize,
+            MealType: editValues.MealType,
+          };
+          break;
       }
 
       await api.put(endpoint, payload, { headers: { Authorization: `Bearer ${token}` } });
@@ -143,6 +157,7 @@ export default function UserDetailsPage() {
         case "Steps": endpoint = `/api/Admin/steps/${trackerId}`; break;
         case "Hydration": endpoint = `/api/Admin/hydration/${trackerId}`; break;
         case "Habits": endpoint = `/api/Admin/habits/${trackerId}`; break;
+        case "Food": endpoint = `/api/Admin/food/${trackerId}`; break;
       }
       await api.delete(endpoint, { headers: { Authorization: `Bearer ${token}` } });
       load();
@@ -226,6 +241,22 @@ export default function UserDetailsPage() {
                     </label>
                   </>
                 )}
+                {type === "Food" && (
+                  <>
+                    <input type="text" value={editValues.FoodName} onChange={(e) => setEditValues({ ...editValues, FoodName: e.target.value })} className="w-full p-2 border rounded" placeholder="Food Name" />
+                    <input type="number" value={editValues.Calories} onChange={(e) => setEditValues({ ...editValues, Calories: e.target.value })} className="w-full p-2 border rounded" placeholder="Calories" />
+                    <input type="number" value={editValues.Protein} onChange={(e) => setEditValues({ ...editValues, Protein: e.target.value })} className="w-full p-2 border rounded" placeholder="Protein (g)" />
+                    <input type="number" value={editValues.Carbs} onChange={(e) => setEditValues({ ...editValues, Carbs: e.target.value })} className="w-full p-2 border rounded" placeholder="Carbohydrates (g)" />
+                    <input type="number" value={editValues.Fat} onChange={(e) => setEditValues({ ...editValues, Fat: e.target.value })} className="w-full p-2 border rounded" placeholder="Fat (g)" />
+                    <input type="text" value={editValues.ServingSize} onChange={(e) => setEditValues({ ...editValues, ServingSize: e.target.value })} className="w-full p-2 border rounded" placeholder="Serving Size" />
+                    <select value={editValues.MealType} onChange={(e) => setEditValues({ ...editValues, MealType: e.target.value })} className="w-full p-2 border rounded">
+                      <option>Breakfast</option>
+                      <option>Lunch</option>
+                      <option>Dinner</option>
+                      <option>Snack</option>
+                    </select>
+                  </>
+                )}
                 <div className="flex gap-2 mt-2">
                   <button onClick={saveEdit} className="px-3 py-1 bg-green-600 text-white rounded">Save</button>
                   <button onClick={() => setEditing(null)} className="px-3 py-1 bg-gray-400 text-white rounded">Cancel</button>
@@ -260,6 +291,17 @@ export default function UserDetailsPage() {
                     <>
                       <p><strong>Habit:</strong> {item.name}</p>
                       <p><strong>Completed:</strong> {item.completed ? "Yes" : "No"}</p>
+                    </>
+                  )}
+                  {type === "Food" && (
+                    <>
+                      <p><strong>Food:</strong> {item.foodName}</p>
+                      <p><strong>Calories:</strong> {item.calories}</p>
+                      <p><strong>Protein:</strong> {item.protein} g</p>
+                      <p><strong>Carbs:</strong> {item.carbs} g</p>
+                      <p><strong>Fat:</strong> {item.fat} g</p>
+                      <p><strong>Serving Size:</strong> {item.servingSize}</p>
+                      <p><strong>Meal Type:</strong> {item.mealType}</p>
                     </>
                   )}
                 </div>
@@ -297,6 +339,7 @@ export default function UserDetailsPage() {
         {renderTracker("Step Records", trackers.Steps, "Steps")}
         {renderTracker("Hydration Records", trackers.Hydration, "Hydration")}
         {renderTracker("Habits", trackers.Habits, "Habits")}
+        {renderTracker("Food Entries", trackers.Food, "Food")}
       </div>
     </div>
   );
