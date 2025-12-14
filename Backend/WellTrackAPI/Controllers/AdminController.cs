@@ -1,74 +1,3 @@
-// using Microsoft.AspNetCore.Authorization;
-// using Microsoft.AspNetCore.Identity;
-// using Microsoft.AspNetCore.Mvc;
-// using WellTrackAPI.Models;
-
-// namespace WellTrackAPI.Controllers
-// {
-//     [ApiController]
-//     [Route("api/[controller]")]
-//     [Authorize(Roles = "Admin")]
-//     public class AdminController : ControllerBase
-//     {
-//         private readonly UserManager<ApplicationUser> _userManager;
-//         private readonly RoleManager<IdentityRole> _roleManager;
-
-//         public AdminController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
-//         {
-//             _userManager = userManager;
-//             _roleManager = roleManager;
-//         }
-
-//         [HttpGet("users")]
-//         public IActionResult GetUsers()
-//         {
-//             var users = _userManager.Users.ToList();
-//             var result = new List<object>();
-//             foreach (var user in users)
-//             {
-//                 var roles = _userManager.GetRolesAsync(user).Result;
-//                 result.Add(new
-//                 {
-//                     user.Id,
-//                     user.Email,
-//                     user.Name,
-//                     user.UserName,
-//                     user.EmailConfirmed,
-//                     Roles = roles
-//                 });
-//             }
-//             return Ok(result);
-//         }
-
-//         [HttpPost("assign-role")]
-//         public async Task<IActionResult> AssignRole([FromQuery] string userId, [FromQuery] string role)
-//         {
-//             var user = await _userManager.FindByIdAsync(userId);
-//             if (user == null) return NotFound();
-//             if (!await _roleManager.RoleExistsAsync(role)) await _roleManager.CreateAsync(new IdentityRole(role));
-//             await _userManager.AddToRoleAsync(user, role);
-//             return Ok();
-//         }
-
-//         [HttpPost("remove-role")]
-//         public async Task<IActionResult> RemoveRole([FromQuery] string userId, [FromQuery] string role)
-//         {
-//             var user = await _userManager.FindByIdAsync(userId);
-//             if (user == null) return NotFound();
-//             await _userManager.RemoveFromRoleAsync(user, role);
-//             return Ok();
-//         }
-
-//         [HttpDelete("delete-user")]
-//         public async Task<IActionResult> DeleteUser([FromQuery] string userId)
-//         {
-//             var user = await _userManager.FindByIdAsync(userId);
-//             if (user == null) return NotFound();
-//             await _userManager.DeleteAsync(user);
-//             return Ok();
-//         }
-//     }
-// }
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -181,7 +110,8 @@ namespace WellTrackAPI.Controllers
                 TotalSleepRecords = await _db.SleepEntries.CountAsync(),
                 TotalStepsRecords = await _db.StepEntries.CountAsync(),
                 TotalHydrationRecords = await _db.HydrationEntries.CountAsync(),
-                TotalHabitEntries = await _db.HabitEntries.CountAsync()
+                TotalHabitEntries = await _db.HabitEntries.CountAsync(),
+                TotalFoodEntries = await _db.FoodEntries.CountAsync()
             });
         }
 
@@ -246,6 +176,24 @@ namespace WellTrackAPI.Controllers
             return Ok(existing);
         }
 
+        [HttpPut("food/{id}")]
+        public async Task<IActionResult> UpdateFood(int id, [FromBody] FoodEntryDTO dto)
+        {
+            var existing = await _db.FoodEntries.FindAsync(id);
+            if (existing == null) return NotFound();
+
+            existing.FoodName = dto.FoodName;
+            existing.Calories = dto.Calories;
+            existing.Protein = dto.Protein;
+            existing.Carbs = dto.Carbs;
+            existing.Fat = dto.Fat;
+            existing.ServingSize = dto.ServingSize;
+            existing.MealType = dto.MealType;
+
+            await _db.SaveChangesAsync();
+            return Ok(existing);
+        }
+
         [HttpDelete("mood/{id}")]
         public async Task<IActionResult> DeleteMood(int id)
         {
@@ -296,6 +244,16 @@ namespace WellTrackAPI.Controllers
             return Ok();
         }
 
+        [HttpDelete("food/{id}")]
+        public async Task<IActionResult> DeleteFood(int id)
+        {
+            var existing = await _db.FoodEntries.FindAsync(id);
+            if (existing == null) return NotFound();
+            _db.FoodEntries.Remove(existing);
+            await _db.SaveChangesAsync();
+            return Ok();
+        }
+
         [HttpGet("user/{id}/trackers")]
         public async Task<IActionResult> GetUserTrackers(string id)
         {
@@ -304,14 +262,15 @@ namespace WellTrackAPI.Controllers
             var steps = await _db.StepEntries.Where(x => x.UserId == id).ToListAsync();
             var hydration = await _db.HydrationEntries.Where(x => x.UserId == id).ToListAsync();
             var habits = await _db.HabitEntries.Where(x => x.UserId == id).ToListAsync();
-
+            var food = await _db.FoodEntries.Where(x => x.UserId == id).ToListAsync();
             return Ok(new
             {
                 Mood = mood,
                 Sleep = sleep,
                 Steps = steps,
                 Hydration = hydration,
-                Habits = habits
+                Habits = habits,
+                Food = food
             });
         }
 
