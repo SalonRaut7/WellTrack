@@ -26,7 +26,8 @@ namespace WellTrackAPI.Mapping
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.UserId, opt => opt.Ignore()) 
                 .ForMember(dest => dest.Date, opt => opt.Ignore());
-                
+            
+            CreateMap<ApplicationUser, AdminUserDTO>();
         }
     }
 }

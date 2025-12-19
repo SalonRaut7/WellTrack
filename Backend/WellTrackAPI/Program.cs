@@ -11,9 +11,17 @@ using WellTrackAPI.Services;
 using AutoMapper;
 using Microsoft.Extensions.Options;
 using WellTrackAPI.Settings;
+using WellTrackAPI.ExceptionHandling;
+using Serilog;
 
 
 var builder = WebApplication.CreateBuilder(args);
+// Configure Serilog
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+);
 
 // USDA API settings
 builder.Services.Configure<UsdaSettings>(builder.Configuration.GetSection("USDA"));
@@ -25,6 +33,9 @@ builder.Services.AddHttpClient();
 // PostgreSQL (Npgsql)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 // Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -105,13 +116,18 @@ builder.Services.AddScoped<ISleepService, SleepService>();
 builder.Services.AddScoped<IHydrationService, HydrationService>();
 builder.Services.AddScoped<IStepService, StepService>();
 builder.Services.AddScoped<IHabitService, HabitService>();
+builder.Services.AddScoped<IFoodService, FoodService>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IImageService, CloudinaryImageService>();
 
 var app = builder.Build();
+
+app.UseSerilogRequestLogging();
+app.UseExceptionHandler();
 
 //call seed admin
 await SeedData.SeedAdminAsync(app.Services);
