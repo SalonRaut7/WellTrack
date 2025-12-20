@@ -26,7 +26,12 @@ export default function Login() {
         navigate("/dashboard");
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Invalid credentials";
+      let msg = "Invalid credentials";
+      if (err?.response) {
+        msg = err.response.data?.message || (err.response.status === 401 ? "Invalid credentials" : err.message);
+      } else if (err?.message) {
+        msg = err.message;
+      }
       setError(msg);
       setPassword("");
     }

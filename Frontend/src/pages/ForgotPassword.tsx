@@ -21,9 +21,7 @@ export default function ForgotPassword() {
 
     setLoading(true);
     try {
-      const resp = await api.post("/api/Auth/forgot-password", JSON.stringify(email), {
-        headers: { "Content-Type": "application/json" },
-      });
+      const resp = await api.post("/api/Auth/forgot-password", { Email: email });
 
       if (resp.status === 200) {
         setMsg(resp.data?.message || "OTP sent if the email exists.");

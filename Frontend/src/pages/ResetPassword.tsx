@@ -43,9 +43,11 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      const resp = await api.post(
-        `/api/Auth/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}&newPassword=${encodeURIComponent(password)}`
-      );
+      const resp = await api.post("/api/Auth/reset-password", {
+        Email: email,
+        Code: code,
+        NewPassword: password,
+      });
       setMsg(resp.data.message || "Password reset successfully.");
       setTimeout(() => navigate("/login"), 1500);
     } catch (err: any) {

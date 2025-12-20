@@ -46,9 +46,7 @@ export default function VerifyOtp() {
         setTimeout(() => navigate("/login"), 900);
       } else if (mode === "reset") {
         // Verify password reset OTP
-        await api.post(
-          `/api/Auth/verify-reset-otp?email=${encodeURIComponent(email)}&code=${encodeURIComponent(otp)}`
-        );
+        await api.post("/api/Auth/verify-reset-otp", { Email: email, Code: otp });
         setMsg("OTP verified. You can now reset password.");
         setTimeout(
           () =>
@@ -75,15 +73,12 @@ export default function VerifyOtp() {
       if (mode === "register") {
         await api.post(
           "/api/Auth/resend-otp",
-          JSON.stringify(localStorage.getItem("pendingUserEmail") || email),
-          { headers: { "Content-Type": "application/json" } }
+          { Email: localStorage.getItem("pendingUserEmail") || email }
         );
         setMsg("OTP resent successfully.");
       } else if (mode === "reset") {
         await api.post(
-          "/api/Auth/resend-reset-otp",
-          JSON.stringify(email),
-          { headers: { "Content-Type": "application/json" } }
+          "/api/Auth/resend-reset-otp", { Email: email }
         );
         setMsg("Password reset OTP resent successfully.");
       }
