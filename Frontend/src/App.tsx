@@ -35,9 +35,25 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+const UserRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.roles?.includes("Admin")) return <Navigate to="/admin" replace />;
+  return <>{children}</>;
+};
+
+// const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+//   const { isAuthenticated } = useAuth();
+//   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+// };
+
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+  const { isAuthenticated, user } = useAuth();
+  if (isAuthenticated) {
+    if (user?.roles?.includes("Admin")) return <Navigate to="/admin" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
 };
 
 export default function App() {
@@ -61,17 +77,16 @@ export default function App() {
           <Route path="/admin/user/:id" element={<PrivateRoute><AdminRoute><UserDetails /></AdminRoute></PrivateRoute>} />
 
           {/* User Routes */}
-          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/mood" element={<PrivateRoute><Mood /></PrivateRoute>} />
-          <Route path="/sleep" element={<PrivateRoute><Sleep /></PrivateRoute>} />
-          <Route path="/steps" element={<PrivateRoute><Steps /></PrivateRoute>} />
-          <Route path="/hydration" element={<PrivateRoute><Hydration /></PrivateRoute>} />
-          <Route path="/habits" element={<PrivateRoute><Habits /></PrivateRoute>} />
-          <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-          <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+          <Route path="/dashboard" element={<PrivateRoute><UserRoute><Dashboard /></UserRoute></PrivateRoute>} />
+          <Route path="/mood" element={<PrivateRoute><UserRoute><Mood /></UserRoute></PrivateRoute>} />
+          <Route path="/sleep" element={<PrivateRoute><UserRoute><Sleep /></UserRoute></PrivateRoute>} />
+          <Route path="/steps" element={<PrivateRoute><UserRoute><Steps /></UserRoute></PrivateRoute>} />
+          <Route path="/hydration" element={<PrivateRoute><UserRoute><Hydration /></UserRoute></PrivateRoute>} />
+          <Route path="/habits" element={<PrivateRoute><UserRoute><Habits /></UserRoute></PrivateRoute>} />
+          <Route path="/analytics" element={<PrivateRoute><UserRoute><Analytics /></UserRoute></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><UserRoute><ProfilePage /></UserRoute></PrivateRoute>} />
 
-          <Route path="/food" element={<PrivateRoute><FoodTracker /></PrivateRoute>} />
-
+          <Route path="/food" element={<PrivateRoute><UserRoute><FoodTracker /></UserRoute></PrivateRoute>} />
         </Routes>
       </div>
     </div>
