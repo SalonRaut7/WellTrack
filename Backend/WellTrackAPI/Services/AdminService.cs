@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Models;
+using Microsoft.Extensions.Logging;
+using WellTrackAPI.ExceptionHandling;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace WellTrackAPI.Services
 {
@@ -13,22 +16,28 @@ namespace WellTrackAPI.Services
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly ILogger<AdminService> _logger;
 
         public AdminService(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             ApplicationDbContext db,
-            IMapper mapper)
+            IMapper mapper,
+            ILogger<AdminService> logger)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _db = db;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<AdminUserDTO>> GetUsersAsync()
         {
-            var users = await _userManager.Users.ToListAsync();
+            _logger.LogInformation("Fetching all users for admin.");
+            var users = await _userManager.Users.ToListAsync() 
+                ?? throw new NotFoundException("No users found");
+
             var result = new List<AdminUserDTO>();
 
             foreach (var user in users)
@@ -42,8 +51,9 @@ namespace WellTrackAPI.Services
 
         public async Task<AdminUserDTO> GetUserAsync(string id)
         {
+            _logger.LogInformation("Fetching user {UserId} for admin.", id);
             var user = await _userManager.FindByIdAsync(id)
-                ?? throw new Exception("User not found");
+                ?? throw new NotFoundException("User not found");
 
             var dto = _mapper.Map<AdminUserDTO>(user);
             dto.Roles = await _userManager.GetRolesAsync(user);
@@ -52,33 +62,40 @@ namespace WellTrackAPI.Services
 
         public async Task AssignRoleAsync(string userId, string role)
         {
+            _logger.LogInformation("Assigning role {Role} to user {UserId}.", role, userId);
             var user = await _userManager.FindByIdAsync(userId)
-                ?? throw new Exception("User not found");
+                ?? throw new NotFoundException("User not found");
 
             if (!await _roleManager.RoleExistsAsync(role))
+            {
                 await _roleManager.CreateAsync(new IdentityRole(role));
+                _logger.LogInformation("Created new role {Role}", role);
+            }
 
             await _userManager.AddToRoleAsync(user, role);
         }
 
         public async Task RemoveRoleAsync(string userId, string role)
         {
+            _logger.LogInformation("Removing role {Role} from user {UserId}.", role, userId);
             var user = await _userManager.FindByIdAsync(userId)
-                ?? throw new Exception("User not found");
+                ?? throw new NotFoundException("User not found");
 
             await _userManager.RemoveFromRoleAsync(user, role);
         }
 
         public async Task DeleteUserAsync(string userId)
         {
+            _logger.LogInformation("Deleting user {UserId}.", userId);
             var user = await _userManager.FindByIdAsync(userId)
-                ?? throw new Exception("User not found");
+                ?? throw new NotFoundException("User not found");
 
             await _userManager.DeleteAsync(user);
         }
 
         public async Task<AdminReportsDTO> GetReportsAsync()
         {
+            _logger.LogInformation("Generating admin reports.");
             return new AdminReportsDTO
             {
                 TotalUsers = await _db.Users.CountAsync(),
@@ -93,6 +110,7 @@ namespace WellTrackAPI.Services
 
         public async Task<object> GetUserTrackersAsync(string userId)
         {
+            _logger.LogInformation("Fetching tracker data for user {UserId}.", userId);
             return new
             {
                 Mood = await _db.MoodEntries.Where(x => x.UserId == userId).ToListAsync(),
@@ -107,7 +125,8 @@ namespace WellTrackAPI.Services
         // Update & Delete methods (logic unchanged)
         public async Task UpdateMoodAsync(int id, MoodDTO dto)
         {
-            var e = await _db.MoodEntries.FindAsync(id) ?? throw new Exception();
+            var e = await _db.MoodEntries.FindAsync(id) 
+                ?? throw new NotFoundException("Mood entry not found");
             e.Mood = dto.Mood;
             e.Notes = dto.Notes;
             if (dto.Date.HasValue) e.Date = dto.Date.Value;
@@ -116,7 +135,8 @@ namespace WellTrackAPI.Services
 
         public async Task UpdateSleepAsync(int id, SleepDTO dto)
         {
-            var e = await _db.SleepEntries.FindAsync(id) ?? throw new Exception();
+            var e = await _db.SleepEntries.FindAsync(id) 
+                ?? throw new NotFoundException("Sleep entry not found");
             e.BedTime = dto.BedTime;
             e.WakeUpTime = dto.WakeUpTime;
             e.Hours = (dto.WakeUpTime - dto.BedTime).TotalHours;
@@ -127,7 +147,8 @@ namespace WellTrackAPI.Services
 
         public async Task UpdateStepAsync(int id, StepDTO dto)
         {
-            var e = await _db.StepEntries.FindAsync(id) ?? throw new Exception();
+            var e = await _db.StepEntries.FindAsync(id) 
+                ?? throw new NotFoundException("Step entry not found");
             e.StepsCount = dto.StepsCount;
             e.ActivityType = dto.ActivityType;
             if (dto.Date.HasValue) e.Date = dto.Date.Value;
@@ -136,7 +157,8 @@ namespace WellTrackAPI.Services
 
         public async Task UpdateHydrationAsync(int id, HydrationDTO dto)
         {
-            var e = await _db.HydrationEntries.FindAsync(id) ?? throw new Exception();
+            var e = await _db.HydrationEntries.FindAsync(id) 
+                ?? throw new NotFoundException("Hydration entry not found");
             e.WaterIntakeLiters = dto.WaterIntakeLiters;
             if (dto.Date.HasValue) e.Date = dto.Date.Value;
             await _db.SaveChangesAsync();
@@ -144,7 +166,8 @@ namespace WellTrackAPI.Services
 
         public async Task UpdateHabitAsync(int id, HabitDTO dto)
         {
-            var e = await _db.HabitEntries.FindAsync(id) ?? throw new Exception();
+            var e = await _db.HabitEntries.FindAsync(id)
+                ?? throw new NotFoundException("Habit entry not found");
             e.Name = dto.Name;
             e.Completed = dto.Completed;
             if (dto.Date.HasValue) e.Date = dto.Date.Value;
@@ -153,7 +176,8 @@ namespace WellTrackAPI.Services
 
         public async Task UpdateFoodAsync(int id, FoodEntryDTO dto)
         {
-            var e = await _db.FoodEntries.FindAsync(id) ?? throw new Exception();
+            var e = await _db.FoodEntries.FindAsync(id)
+                ?? throw new NotFoundException("Food entry not found");
             e.FoodName = dto.FoodName;
             e.Calories = dto.Calories;
             e.Protein = dto.Protein;
@@ -166,9 +190,8 @@ namespace WellTrackAPI.Services
 
         public async Task DeleteMoodAsync(int id)
         {
-            var entity = await _db.MoodEntries.FindAsync(id);
-            if (entity == null)
-                throw new Exception("Mood entry not found");
+            var entity = await _db.MoodEntries.FindAsync(id)
+                ?? throw new NotFoundException("Mood entry not found");
 
             _db.MoodEntries.Remove(entity);
             await _db.SaveChangesAsync();
@@ -176,9 +199,8 @@ namespace WellTrackAPI.Services
 
         public async Task DeleteSleepAsync(int id)
         {
-            var entity = await _db.SleepEntries.FindAsync(id);
-            if (entity == null)
-                throw new Exception("Sleep entry not found");
+            var entity = await _db.SleepEntries.FindAsync(id)
+               ?? throw new NotFoundException("Sleep entry not found");
 
             _db.SleepEntries.Remove(entity);
             await _db.SaveChangesAsync();
@@ -186,9 +208,8 @@ namespace WellTrackAPI.Services
 
         public async Task DeleteStepAsync(int id)
         {
-            var entity = await _db.StepEntries.FindAsync(id);
-            if (entity == null)
-                throw new Exception("Step entry not found");
+            var entity = await _db.StepEntries.FindAsync(id)
+                ?? throw new NotFoundException("Step entry not found");
 
             _db.StepEntries.Remove(entity);
             await _db.SaveChangesAsync();
@@ -196,9 +217,8 @@ namespace WellTrackAPI.Services
 
         public async Task DeleteHydrationAsync(int id)
         {
-            var entity = await _db.HydrationEntries.FindAsync(id);
-            if (entity == null)
-                throw new Exception("Hydration entry not found");
+            var entity = await _db.HydrationEntries.FindAsync(id)
+                ?? throw new NotFoundException("Hydration entry not found");
 
             _db.HydrationEntries.Remove(entity);
             await _db.SaveChangesAsync();
@@ -206,9 +226,8 @@ namespace WellTrackAPI.Services
 
         public async Task DeleteHabitAsync(int id)
         {
-            var entity = await _db.HabitEntries.FindAsync(id);
-            if (entity == null)
-                throw new Exception("Habit entry not found");
+            var entity = await _db.HabitEntries.FindAsync(id)
+                ?? throw new NotFoundException("Habit entry not found");
 
             _db.HabitEntries.Remove(entity);
             await _db.SaveChangesAsync();
@@ -216,9 +235,8 @@ namespace WellTrackAPI.Services
 
         public async Task DeleteFoodAsync(int id)
         {
-            var entity = await _db.FoodEntries.FindAsync(id);
-            if (entity == null)
-                throw new Exception("Food entry not found");
+            var entity = await _db.FoodEntries.FindAsync(id)
+                ?? throw new NotFoundException("Food entry not found");
 
             _db.FoodEntries.Remove(entity);
             await _db.SaveChangesAsync();

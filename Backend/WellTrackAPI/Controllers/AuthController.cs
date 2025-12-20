@@ -1,10 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using WellTrackAPI.DTOs;
+using WellTrackAPI.DTOs.Auth;
 using WellTrackAPI.Models;
 using WellTrackAPI.Services;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
+using Microsoft.Extensions.Logging;
+using WellTrackAPI.ExceptionHandling;
 
 namespace WellTrackAPI.Controllers
 {
@@ -14,116 +17,152 @@ namespace WellTrackAPI.Controllers
     {
         private readonly IAuthService _auth;
         private readonly UserManager<ApplicationUser> _userManager;
-        
-        public AuthController(IAuthService auth, UserManager<ApplicationUser> userManager)
+        private readonly ILogger<AuthController> _logger;
+
+        public AuthController(
+            IAuthService auth,
+            UserManager<ApplicationUser> userManager,
+            ILogger<AuthController> logger)
         {
             _auth = auth;
             _userManager = userManager;
+            _logger = logger;
         }
+
+        private string ClientIp =>
+            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var (succeeded,userId, errors) = await _auth.RegisterAsync(model, ip);
-            if (!succeeded) return BadRequest(new { errors });
-            return Ok(new { userId, message = "Registered. Check email for OTP to verify." });
+            _logger.LogInformation(
+                "Register request for email {Email} from IP {IP}",
+                model.Email,
+                ClientIp
+            );
+
+            var (succeeded, userId, _) =
+                await _auth.RegisterAsync(model, ClientIp);
+
+            return Ok(new
+            {
+                userId,
+                message = "Registered. Check email for OTP to verify."
+            });
         }
 
         [HttpPost("verify-email")]
-        public async Task<IActionResult> VerifyEmail([FromQuery] string userId, [FromQuery] string code)
+        public async Task<IActionResult> VerifyEmail(
+            [FromQuery] string userId,
+            [FromQuery] string code)
         {
-            var ok = await _auth.VerifyEmailOtpAsync(userId, code);
-            if (!ok) return BadRequest(new { message = "Invalid or expired code." });
+            await _auth.VerifyEmailOtpAsync(userId, code);
+
             return Ok(new { message = "Email verified" });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var (access, refresh, error) = await _auth.LoginAsync(model, ip);
-            if (error != null) return BadRequest(new { message = error });
+            _logger.LogInformation(
+                "Login attempt for email {Email} from IP {IP}",
+                model.Email,
+                ClientIp
+            );
+
+            var (access, refresh, _) =
+                await _auth.LoginAsync(model, ClientIp);
+
             return Ok(new { access, refresh });
         }
 
+
         [HttpPost("refresh")]
-        public async Task<IActionResult> Refresh([FromBody] string refreshToken)
+        public async Task<IActionResult> Refresh(
+            [FromBody] RefreshTokenDto dto)
         {
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var (access, error) = await _auth.RefreshTokenAsync(refreshToken, ip);
-            if (error != null) return BadRequest(new { message = error });
+            var (access, _) =
+                await _auth.RefreshTokenAsync(dto.RefreshToken, ClientIp);
+
             return Ok(new { access });
         }
 
+
         [HttpPost("revoke")]
-        public async Task<IActionResult> Revoke([FromBody] string refreshToken)
+        public async Task<IActionResult> Revoke(
+            [FromBody] RefreshTokenDto dto)
         {
-            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            var ok = await _auth.RevokeRefreshTokenAsync(refreshToken, ip);
-            if (!ok) return BadRequest(new { message = "Token not found or already revoked." });
+            await _auth.RevokeRefreshTokenAsync(dto.RefreshToken, ClientIp);
+
             return Ok(new { message = "Revoked" });
         }
-        
-        [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] string email)
-        {
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
-                return NotFound(new { message = "Email is not registered." });
 
-            await _auth.SendPasswordResetOtpAsync(email);
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(
+            [FromBody] EmailDto dto)
+        {
+            _logger.LogInformation(
+                "Forgot-password requested for {Email}",
+                dto.Email
+            );
+
+            await _auth.SendPasswordResetOtpAsync(dto.Email);
+
             return Ok(new { message = "OTP sent to email." });
         }
 
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromQuery] string email, [FromQuery] string code, [FromQuery] string newPassword)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
         {
-            var ok = await _auth.ResetPasswordAsync(email, code, newPassword);
-            if (!ok) return BadRequest(new { message = "Invalid code or email." });
+            await _auth.ResetPasswordAsync(dto.Email, dto.Code, dto.NewPassword);
+
             return Ok(new { message = "Password reset successful." });
         }
 
-        [HttpPost("resend-otp")]
-        public async Task<IActionResult> ResendOtp([FromBody] string email)
+        [HttpPost("verify-reset-otp")]
+        public async Task<IActionResult> VerifyResetOtp(
+            [FromBody] VerifyResetOtpDto dto)
         {
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
-                return NotFound(new { message = "Email is not registered." });
+            var ok = await _auth.VerifyPasswordResetOtpAsync(dto.Email, dto.Code);
+
+            if (!ok)
+                return BadRequest(new { message = "Invalid or expired OTP." });
+
+            return Ok(new { message = "OTP verified successfully." });
+        }
+
+        [HttpPost("resend-otp")]
+        public async Task<IActionResult> ResendOtp(
+            [FromBody] EmailDto dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email)
+                ?? throw new NotFoundException("User not found"); 
 
             await _auth.SendEmailOtpAsync(user.Id, user.Email!);
+
             return Ok(new { message = "OTP resent successfully." });
         }
 
         [HttpPost("resend-reset-otp")]
-        public async Task<IActionResult> ResendResetOtp([FromBody] string email)
+        public async Task<IActionResult> ResendResetOtp(
+            [FromBody] EmailDto dto)
         {
-            var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
-                return NotFound(new { message = "Email is not registered." });
+            await _auth.SendPasswordResetOtpAsync(dto.Email);
 
-            await _auth.SendPasswordResetOtpAsync(email); // same as forgot-password
             return Ok(new { message = "Password reset OTP resent successfully." });
         }
 
-        [HttpPost("verify-reset-otp")]
-        public async Task<IActionResult> VerifyResetOtp([FromQuery] string email, [FromQuery] string code)
-        {
-            var ok = await _auth.VerifyPasswordResetOtpAsync(email, code);
-            if (!ok) return BadRequest(new { message = "Invalid or expired OTP." });
-            return Ok(new { message = "OTP verified successfully." });
-        }
-        
-        [HttpGet("me")]
         [Authorize]
+        [HttpGet("me")]
         public async Task<IActionResult> Me()
         {
-            var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null) return Unauthorized();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? throw new UnauthorizedAccessException();
 
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null) return NotFound();
+            var user = await _userManager.FindByIdAsync(userId)
+                ?? throw new NotFoundException("User not found");
 
             var roles = await _userManager.GetRolesAsync(user);
 

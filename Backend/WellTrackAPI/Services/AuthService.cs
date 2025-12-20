@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using WellTrackAPI.Data;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Models;
+using Microsoft.Extensions.Logging;
+using WellTrackAPI.ExceptionHandling;
 
 namespace WellTrackAPI.Services
 {
@@ -14,19 +16,22 @@ namespace WellTrackAPI.Services
         private readonly ApplicationDbContext _db;
         private readonly ITokenService _tokenService;
         private readonly IEmailService _emailService;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             ApplicationDbContext db,
             ITokenService tokenService,
-            IEmailService emailService)
+            IEmailService emailService,
+            ILogger<AuthService> logger)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _db = db;
             _tokenService = tokenService;
             _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task<bool> DoesUserExist(string email)
@@ -35,6 +40,13 @@ namespace WellTrackAPI.Services
         }
         public async Task<(bool Succeeded, string? UserId, IEnumerable<string>? Errors)> RegisterAsync(RegisterModel model, string originIp)
         {
+            _logger.LogInformation("Registering attempt for user with email {Email} from IP {IP}", model.Email, originIp);
+            if (await DoesUserExist(model.Email))
+            {
+                _logger.LogWarning("Registration failed: Email {Email} is already in use", model.Email);
+                throw new ConflictException("User already exists");
+            }
+
             var user = new ApplicationUser
             {
                 UserName = model.Email,
@@ -43,7 +55,16 @@ namespace WellTrackAPI.Services
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
-            if (!result.Succeeded) return (false,null, result.Errors.Select(e => e.Description));
+
+            if (!result.Succeeded)
+            {
+                _logger.LogWarning(
+                    "Registration failed for email {Email}. Errors: {Errors}",
+                    model.Email,
+                    result.Errors.Select(e => e.Description)
+                );
+                throw new ValidationException(string.Join(", ", result.Errors.Select(e => e.Description)));
+            }
 
             // ensure "User" role exists and assign
             if (!await _roleManager.RoleExistsAsync("User"))
@@ -53,15 +74,25 @@ namespace WellTrackAPI.Services
             // send OTP
             await SendEmailOtpAsync(user.Id, user.Email!);
 
+            _logger.LogInformation("User registered successfully, UserId: {UserId}", user.Id);
+
             return (true, user.Id, null);
         }
 
         public async Task<(string? AccessToken, string? RefreshToken, string? Error)> LoginAsync(LoginModel model, string ipAddress)
         {
+            _logger.LogInformation("Login attempt for email {Email} from IP {IP}", model.Email, ipAddress);
             var user = await _userManager.FindByEmailAsync(model.Email);
-            if (user == null) return (null, null, "Invalid credentials");
-            if (!await _userManager.CheckPasswordAsync(user, model.Password)) return (null, null, "Invalid credentials");
-            if (!user.EmailConfirmed) return (null, null, "Email not verified");
+            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
+            {
+                _logger.LogWarning("Invalid login attempt for email {Email}", model.Email);
+                throw new UnauthorizedException("Invalid credentials");
+            }
+            if (!user.EmailConfirmed) 
+            {
+                _logger.LogWarning("Login Blocked. Email not verified for {Email}", model.Email);
+                throw new UnauthorizedException("Email not verified");
+            }
 
             var roles = await _userManager.GetRolesAsync(user);
             var accessToken = _tokenService.CreateAccessToken(user, roles);
@@ -70,13 +101,19 @@ namespace WellTrackAPI.Services
             _db.RefreshTokens.Add(refreshToken);
             await _db.SaveChangesAsync();
 
+            _logger.LogInformation("Login successful. UserId: {UserId}", user.Id);
+
             return (accessToken, refreshToken.Token, null);
         }
 
         public async Task<(string? AccessToken, string? Error)> RefreshTokenAsync(string token, string ipAddress)
         {
             var refresh = await _db.RefreshTokens.Include(r => r.User).FirstOrDefaultAsync(r => r.Token == token);
-            if (refresh == null || !refresh.IsActive) return (null, "Invalid refresh token");
+            if (refresh == null || !refresh.IsActive)
+            {
+                _logger.LogWarning("Invalid refresh token attempt from IP {IP}", ipAddress);
+                throw new UnauthorizedException("Invalid refresh token");
+            }
 
             // revoke current token and issue new refresh token
             refresh.Revoked = DateTime.UtcNow;
@@ -91,16 +128,23 @@ namespace WellTrackAPI.Services
             var newAccess = _tokenService.CreateAccessToken(refresh.User, roles);
 
             await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Refresh token rotated for UserId {UserId}", refresh.UserId);
             return (newAccess, null);
         }
 
         public async Task<bool> RevokeRefreshTokenAsync(string token, string ipAddress)
         {
             var refresh = await _db.RefreshTokens.FirstOrDefaultAsync(r => r.Token == token);
-            if (refresh == null || !refresh.IsActive) return false;
+            if (refresh == null || !refresh.IsActive)
+            {
+                _logger.LogWarning("Attempt to revoke invalid or inactive refresh token from IP {IP}", ipAddress);
+                throw new NotFoundException("Refresh token not found or already inactive");
+            }
             refresh.Revoked = DateTime.UtcNow;
             refresh.RevokedByIp = ipAddress;
             await _db.SaveChangesAsync();
+            _logger.LogInformation("Refresh token revoked for UserId {UserId} from IP {IP}", refresh.UserId, ipAddress);
             return true;
         }
 
@@ -116,6 +160,7 @@ namespace WellTrackAPI.Services
             };
             _db.EmailOtps.Add(otp);
             await _db.SaveChangesAsync();
+            _logger.LogInformation("Sending email OTP to {Email} for UserId {UserId}", email, userId);
 
             await _emailService.SendEmailAsync(email, "Your WellTrack OTP", $"Your verification code is: <b>{code}</b>. It expires in 15 minutes.");
         }
@@ -127,25 +172,30 @@ namespace WellTrackAPI.Services
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
 
-            if (otp == null || otp.Code != code) return false;
+            if (otp == null || otp.Code != code)
+            {
+                _logger.LogWarning("Invalid email OTP verification attempt for UserId {UserId}", userId);
+                throw new ValidationException("Invalid or expired OTP");
+            }
 
             otp.Used = true;
 
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user != null)
-            {
-                user.EmailConfirmed = true;
-                await _userManager.UpdateAsync(user);
-            }
+            var user = await _userManager.FindByIdAsync(userId)
+                ?? throw new NotFoundException("User not found");
 
+            user.EmailConfirmed = true;
+            await _userManager.UpdateAsync(user);
+            _logger.LogInformation("Email OTP verified successfully for UserId {UserId}", userId);
             await _db.SaveChangesAsync();
             return true;
         }
         public async Task SendPasswordResetOtpAsync(string email)
         {
             var user = await _userManager.FindByEmailAsync(email);
-            if (user == null) return; 
-
+            if (user == null)
+            {
+                throw new NotFoundException("User not found");
+            }
             var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
             var otp = new EmailOtp
             {
@@ -155,6 +205,7 @@ namespace WellTrackAPI.Services
                 CreatedAt = DateTime.UtcNow,
                 Purpose = "PasswordReset" //mark purpose as password reset
             };
+            _logger.LogInformation("Sending password reset OTP to {Email}", email);
             _db.EmailOtps.Add(otp);
             await _db.SaveChangesAsync();
 
@@ -163,20 +214,28 @@ namespace WellTrackAPI.Services
         public async Task<bool> ResetPasswordAsync(string email, string code, string newPassword)
         {
             var user = await _userManager.FindByEmailAsync(email);
-            if (user == null) return false;
+            if (user == null)
+            {
+                throw new NotFoundException("User not found");
+            }
 
             var otp = await _db.EmailOtps
                 .Where(o => o.UserId == user.Id && !o.UsedForReset && o.ExpiresAt >= DateTime.UtcNow)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
 
-            if (otp == null || otp.Code != code) return false;
+            if (otp == null || otp.Code != code)
+            {
+                _logger.LogWarning("Invalid password reset OTP attempt for email {Email}", email);
+                return false;
+            }
 
             otp.UsedForReset = true; // mark as fully consumed for reset
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
 
             await _db.SaveChangesAsync();
+            _logger.LogInformation("Password reset successfully for email {Email}", email);
             return result.Succeeded;
         }
 
@@ -184,21 +243,26 @@ namespace WellTrackAPI.Services
         public async Task<bool> VerifyPasswordResetOtpAsync(string email, string code)
         {
             var user = await _userManager.FindByEmailAsync(email);
-            if (user == null) return false;
+            if (user == null)
+            {
+                throw new NotFoundException("User not found");
+            }
 
             var otp = await _db.EmailOtps
                 .Where(o => o.UserId == user.Id && o.Purpose == "PasswordReset" && !o.Used && o.ExpiresAt >= DateTime.UtcNow)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
 
-            if (otp == null || otp.Code != code) return false;
+            if (otp == null || otp.Code != code)
+            {
+                _logger.LogWarning("Invalid password reset OTP verification attempt for email {Email}", email);
+                return false;
+            }
 
             otp.Used = true;
             await _db.SaveChangesAsync();
+            _logger.LogInformation("Password reset OTP verified successfully for email {Email}", email);
             return true;
         }
-
-        
-
     }
 }

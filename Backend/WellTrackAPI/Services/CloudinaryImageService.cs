@@ -1,5 +1,6 @@
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -11,9 +12,12 @@ namespace WellTrackAPI.Services
     public class CloudinaryImageService : IImageService
     {
         private readonly Cloudinary _cloudinary;
+        private readonly ILogger<CloudinaryImageService> _logger;
 
-        public CloudinaryImageService(IConfiguration config)
+        public CloudinaryImageService(IConfiguration config, ILogger<CloudinaryImageService> logger)
         {
+            _logger = logger;
+
             var cloudName = config["Cloudinary:CloudName"] ?? throw new InvalidOperationException("Cloudinary:CloudName missing");
             var apiKey = config["Cloudinary:ApiKey"] ?? throw new InvalidOperationException("Cloudinary:ApiKey missing");
             var apiSecret = config["Cloudinary:ApiSecret"] ?? throw new InvalidOperationException("Cloudinary:ApiSecret missing");
@@ -24,8 +28,13 @@ namespace WellTrackAPI.Services
 
         public async Task<string?> UploadProfileImageAsync(IFormFile file, string userId)
         {
-            if (file == null || file.Length == 0) return null;
+            if (file == null || file.Length == 0)
+            {
+                _logger.LogWarning("Empty profile image upload attempt for UserId {UserId}", userId);
+                return null;
+            }
 
+            _logger.LogInformation("Uploading profile image for UserId {UserId}", userId);
             await using var ms = new MemoryStream();
             await file.CopyToAsync(ms);
             ms.Position = 0;
@@ -45,10 +54,14 @@ namespace WellTrackAPI.Services
 
             if (result.Error != null)
             {
-                Console.WriteLine("Cloudinary upload error: " + result.Error.Message);
+                _logger.LogError(
+                    "Cloudinary upload failed for UserId {UserId}. Error: {Error}",
+                    userId,
+                    result.Error.Message
+                );
                 return null;
             }
-
+            _logger.LogInformation("Profile image uploaded successfully for UserId {UserId}", userId);
             return result.SecureUrl?.ToString();
         }
     }

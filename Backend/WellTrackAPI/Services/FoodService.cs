@@ -6,6 +6,7 @@ using WellTrackAPI.DTOs;
 using WellTrackAPI.Models;
 using WellTrackAPI.Settings;
 using Microsoft.Extensions.Options;
+using WellTrackAPI.ExceptionHandling;
 
 namespace WellTrackAPI.Services
 {
@@ -72,7 +73,7 @@ namespace WellTrackAPI.Services
                 .FirstOrDefaultAsync(f => f.Id == id && f.UserId == userId);
 
             if (entry == null)
-                throw new Exception("Food entry not found"); // handled by global handler
+                throw new NotFoundException("Food entry not found");
 
             _mapper.Map(dto, entry);
             await _db.SaveChangesAsync();
@@ -86,7 +87,7 @@ namespace WellTrackAPI.Services
                 .FirstOrDefaultAsync(f => f.Id == id && f.UserId == userId);
 
             if (entry == null)
-                throw new Exception("Food entry not found");
+                throw new NotFoundException("Food entry not found");
 
             _db.FoodEntries.Remove(entry);
             await _db.SaveChangesAsync();
