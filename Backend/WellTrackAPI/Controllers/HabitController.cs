@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WellTrackAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting("UserPolicy")]
     public class HabitController : ControllerBase
     {
         private readonly IHabitService _service;

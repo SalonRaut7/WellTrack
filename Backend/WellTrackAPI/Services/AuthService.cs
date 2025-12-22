@@ -12,6 +12,7 @@ namespace WellTrackAPI.Services
     public class AuthService : IAuthService
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ApplicationDbContext _db;
         private readonly ITokenService _tokenService;
@@ -20,6 +21,7 @@ namespace WellTrackAPI.Services
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
             RoleManager<IdentityRole> roleManager,
             ApplicationDbContext db,
             ITokenService tokenService,
@@ -27,6 +29,7 @@ namespace WellTrackAPI.Services
             ILogger<AuthService> logger)
         {
             _userManager = userManager;
+            _signInManager = signInManager;
             _roleManager = roleManager;
             _db = db;
             _tokenService = tokenService;
@@ -82,15 +85,38 @@ namespace WellTrackAPI.Services
         public async Task<(string? AccessToken, string? RefreshToken, string? Error)> LoginAsync(LoginModel model, string ipAddress)
         {
             _logger.LogInformation("Login attempt for email {Email} from IP {IP}", model.Email, ipAddress);
+
             var user = await _userManager.FindByEmailAsync(model.Email);
-            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
+            if (user == null)
             {
                 _logger.LogWarning("Invalid login attempt for email {Email}", model.Email);
                 throw new UnauthorizedException("Invalid credentials");
             }
-            if (!user.EmailConfirmed) 
+
+            if (await _userManager.IsLockedOutAsync(user))
             {
-                _logger.LogWarning("Login Blocked. Email not verified for {Email}", model.Email);
+                _logger.LogWarning("Login blocked. Account locked for email {Email}", model.Email);
+                throw new UnauthorizedException($"Account locked. Try again after {user.LockoutEnd?.ToLocalTime():HH:mm}");
+            }
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, lockoutOnFailure: true);
+            if (!result.Succeeded)
+            {
+                var failedCount = await _userManager.GetAccessFailedCountAsync(user);
+                var maxAttempts = _userManager.Options.Lockout.MaxFailedAccessAttempts;
+                var attemptsLeft = Math.Max(0, maxAttempts - failedCount);
+
+                _logger.LogWarning("Invalid login attempt for email {Email}. {AttemptsLeft} attempts left.", model.Email, attemptsLeft);
+                throw new UnauthorizedException(attemptsLeft > 0
+                    ? $"Invalid credentials. {attemptsLeft} attempt(s) left before account lock."
+                    : "Account locked due to too many failed login attempts.");
+            }
+
+            await _userManager.ResetAccessFailedCountAsync(user);
+
+            if (!user.EmailConfirmed)
+            {
+                _logger.LogWarning("Login blocked. Email not verified for {Email}", model.Email);
                 throw new UnauthorizedException("Email not verified");
             }
 

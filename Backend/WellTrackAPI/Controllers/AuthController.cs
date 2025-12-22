@@ -8,6 +8,7 @@ using WellTrackAPI.Models;
 using WellTrackAPI.Services;
 using Microsoft.Extensions.Logging;
 using WellTrackAPI.ExceptionHandling;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WellTrackAPI.Controllers
 {
@@ -33,6 +34,7 @@ namespace WellTrackAPI.Controllers
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
 
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
         {
@@ -52,6 +54,7 @@ namespace WellTrackAPI.Controllers
             });
         }
 
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("verify-email")]
         public async Task<IActionResult> VerifyEmail(
             [FromQuery] string userId,
@@ -62,6 +65,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { message = "Email verified" });
         }
 
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
@@ -77,7 +81,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { access, refresh });
         }
 
-
+        [EnableRateLimiting("TokenPolicy")]
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh(
             [FromBody] RefreshTokenDto dto)
@@ -88,7 +92,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { access });
         }
 
-
+        [EnableRateLimiting("TokenPolicy")]
         [HttpPost("revoke")]
         public async Task<IActionResult> Revoke(
             [FromBody] RefreshTokenDto dto)
@@ -98,7 +102,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { message = "Revoked" });
         }
 
-
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword(
             [FromBody] EmailDto dto)
@@ -113,6 +117,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { message = "OTP sent to email." });
         }
 
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
         {
@@ -121,6 +126,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { message = "Password reset successful." });
         }
 
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("verify-reset-otp")]
         public async Task<IActionResult> VerifyResetOtp(
             [FromBody] VerifyResetOtpDto dto)
@@ -133,6 +139,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { message = "OTP verified successfully." });
         }
 
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("resend-otp")]
         public async Task<IActionResult> ResendOtp(
             [FromBody] EmailDto dto)
@@ -145,6 +152,7 @@ namespace WellTrackAPI.Controllers
             return Ok(new { message = "OTP resent successfully." });
         }
 
+        [EnableRateLimiting("AuthPolicy")]
         [HttpPost("resend-reset-otp")]
         public async Task<IActionResult> ResendResetOtp(
             [FromBody] EmailDto dto)
@@ -153,8 +161,9 @@ namespace WellTrackAPI.Controllers
 
             return Ok(new { message = "Password reset OTP resent successfully." });
         }
-
+        
         [Authorize]
+        [EnableRateLimiting("UserPolicy")]
         [HttpGet("me")]
         public async Task<IActionResult> Me()
         {

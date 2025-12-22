@@ -2,12 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WellTrackAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "Admin")]
+    [EnableRateLimiting("AdminPolicy")]
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _adminService;
