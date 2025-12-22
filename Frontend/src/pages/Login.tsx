@@ -27,8 +27,8 @@ export default function Login() {
       }
     } catch (err: any) {
       let msg = "Invalid credentials";
-      if (err?.response) {
-        msg = err.response.data?.message || (err.response.status === 401 ? "Invalid credentials" : err.message);
+      if (err?.response?.data) {
+        msg = err.response.data.message || err.response.data.detail || JSON.stringify(err.response.data);
       } else if (err?.message) {
         msg = err.message;
       }
