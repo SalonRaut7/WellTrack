@@ -84,7 +84,7 @@ export default function App() {
           <Route path="/hydration" element={<PrivateRoute><UserRoute><Hydration /></UserRoute></PrivateRoute>} />
           <Route path="/habits" element={<PrivateRoute><UserRoute><Habits /></UserRoute></PrivateRoute>} />
           <Route path="/analytics" element={<PrivateRoute><UserRoute><Analytics /></UserRoute></PrivateRoute>} />
-          <Route path="/profile" element={<PrivateRoute><UserRoute><ProfilePage /></UserRoute></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
 
           <Route path="/food" element={<PrivateRoute><UserRoute><FoodTracker /></UserRoute></PrivateRoute>} />
         </Routes>
