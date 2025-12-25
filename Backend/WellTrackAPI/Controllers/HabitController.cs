@@ -16,7 +16,6 @@ namespace WellTrackAPI.Controllers
         private readonly IHabitService _service;
         public HabitController(IHabitService service) => _service = service;
         private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
         [HttpGet] public async Task<IActionResult> GetAll() => Ok(await _service.GetAllAsync(UserId));
         [HttpGet("{id}")] public async Task<IActionResult> Get(int id) => Ok(await _service.GetByIdAsync(id, UserId));
         [HttpPost] public async Task<IActionResult> Create(HabitDTO dto) => Ok(await _service.CreateAsync(dto, UserId));
