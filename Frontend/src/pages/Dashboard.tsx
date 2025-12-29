@@ -17,10 +17,20 @@ type Summary = {
 
 type View = "daily" | "weekly" | "monthly";
 
+type DailyMotivation = {
+  date: string;
+  message: string;
+};
+
 export default function Dashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<View>("weekly");
+
+  // Daily motivation (independent of summary loading)
+  const [motivation, setMotivation] = useState<DailyMotivation | null>(null);
+  const [motivationLoading, setMotivationLoading] = useState(false);
+  const [motivationError, setMotivationError] = useState<string | null>(null);
 
   const getDaysCount = () => {
     switch (view) {
@@ -47,6 +57,26 @@ export default function Dashboard() {
         return dayjs().subtract(7, "day");
     }
   };
+
+  // Load Daily Motivation once on page load
+  useEffect(() => {
+    const loadMotivation = async () => {
+      setMotivationLoading(true);
+      setMotivationError(null);
+      try {
+        const resp = await api.get("/api/motivation/today", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+        });
+        setMotivation(resp.data);
+      } catch (err: any) {
+        setMotivationError(err?.response?.data?.message || "Failed to load daily motivation.");
+      } finally {
+        setMotivationLoading(false);
+      }
+    };
+
+    loadMotivation();
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -91,7 +121,6 @@ export default function Dashboard() {
             : Math.round((habits.reduce((s: number, it: any) => s + (it.completed ? 1 : 0), 0) / habits.length) * 100);
 
         const foodEntries = foodResp.data?.entries || [];
-
         const foodFiltered = foodEntries.filter((f: any) => dayjs(f.date).isAfter(since));
 
         const foodTotals = foodFiltered.reduce(
@@ -190,6 +219,39 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="relative p-6 sm:p-7">
+            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 opacity-10" />
+            <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">Daily motivation</div>
+                <div className="mt-1 text-xs text-slate-600">
+                  {motivation?.date ? `For ${motivation.date}` : "For today"}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+                  {motivationLoading ? (
+                    <div className="space-y-2">
+                      <div className="h-4 w-11/12 animate-pulse rounded bg-slate-200" />
+                      <div className="h-4 w-9/12 animate-pulse rounded bg-slate-200" />
+                    </div>
+                  ) : motivationError ? (
+                    <div className="text-rose-700">{motivationError}</div>
+                  ) : motivation?.message ? (
+                    <div className="leading-relaxed">{motivation.message}</div>
+                  ) : (
+                    <div className="text-slate-500">No motivation available yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
+                Motivation
+              </span>
+            </div>
+          </div>
+        </div>
+
         {loading && (
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array(9)
@@ -213,14 +275,16 @@ export default function Dashboard() {
           <Card
             title="Mood (avg)"
             subtitle={unitLabel()}
-            value={summary?.mood ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="text-3xl">{summary.mood.emoji}</span>
-                <span className="text-slate-900">{summary.mood.text}</span>
-              </span>
-            ) : (
-              "—"
-            )}
+            value={
+              summary?.mood ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="text-3xl">{summary.mood.emoji}</span>
+                  <span className="text-slate-900">{summary.mood.text}</span>
+                </span>
+              ) : (
+                "—"
+              )
+            }
             icon={<Heart className="h-5 w-5" />}
             gradient="from-fuchsia-600 to-pink-500"
             chipClass="bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100"
@@ -343,7 +407,9 @@ function Card({
       <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${gradient}`} />
 
       <div className="flex items-start justify-between gap-3">
-        <div className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-r ${gradient} text-white shadow-sm`}>
+        <div
+          className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-r ${gradient} text-white shadow-sm`}
+        >
           {icon}
         </div>
 
@@ -362,7 +428,9 @@ function Card({
             <div className="h-8 w-28 animate-pulse rounded bg-slate-100" />
           ) : (
             <>
-              <div className="text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">{value}</div>
+              <div className="text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
+                {value}
+              </div>
               {suffix ? <div className="text-sm font-semibold text-slate-500">{suffix}</div> : null}
             </>
           )}
