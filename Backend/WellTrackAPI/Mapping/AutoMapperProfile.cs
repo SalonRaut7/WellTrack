@@ -14,6 +14,7 @@ namespace WellTrackAPI.Mapping
             CreateMap<HydrationDTO, HydrationEntry>();
             CreateMap<StepDTO, StepEntry>();
             CreateMap<HabitDTO, HabitEntry>();
+            CreateMap<DailyMotivation, DailyMotivationDTO>();
 
             CreateMap<ApplicationUser, UserProfileDTO>()
                 .ForMember(dest => dest.BMI, opt => opt.Ignore());

@@ -14,6 +14,7 @@ namespace WellTrackAPI.Data
         public DbSet<StepEntry> StepEntries { get; set; } = null!;
         public DbSet<HabitEntry> HabitEntries { get; set; } = null!;
         public DbSet<FoodEntry> FoodEntries { get; set; } = null!;
+        public DbSet<DailyMotivation> DailyMotivations { get; set; } = null!;
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         public DbSet<EmailOtp> EmailOtps { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder builder)

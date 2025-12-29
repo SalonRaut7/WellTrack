@@ -13,6 +13,7 @@ using WellTrackAPI.ExceptionHandling;
 using Serilog;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using WellTrackAPI.Hubs;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -76,6 +77,9 @@ builder.Services.AddControllers();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(AutoMapperProfile)); // registers the mapping profile from Mapping folder
+
+// SignalR
+builder.Services.AddSignalR();
 
 //policy-based rate limiting
 builder.Services.AddRateLimiter(options =>
@@ -168,6 +172,7 @@ builder.Services.AddScoped<IHydrationService, HydrationService>();
 builder.Services.AddScoped<IStepService, StepService>();
 builder.Services.AddScoped<IHabitService, HabitService>();
 builder.Services.AddScoped<IFoodService, FoodService>();
+builder.Services.AddScoped<IMotivationService, MotivationService>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
@@ -184,6 +189,7 @@ app.UseExceptionHandler();
 //call seed admin
 await SeedData.SeedAdminAsync(app.Services);
 
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // Middleware
 app.UseSwagger();
