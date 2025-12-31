@@ -191,9 +191,8 @@ export default function UserDetailsPage() {
 
   type WithChildren = { children: React.ReactNode; className?: string };
 
-
   const FieldLabel = ({ children, className = "" }: WithChildren) => (
-    <span className={"text-xs font-medium text-slate-600 " + className}>{children}</span>
+    <span className={"text-xs font-medium text-slate-300 " + className}>{children}</span>
   );
 
   const InfoRow = ({
@@ -206,59 +205,63 @@ export default function UserDetailsPage() {
     valueClassName?: string;
   }) => (
     <div className="flex items-baseline gap-2">
-      <span className="text-xs font-medium text-slate-600">{label}:</span>
-      <span className={"text-sm font-semibold text-slate-900 " + valueClassName}>{value}</span>
+      <span className="text-xs font-medium text-slate-300">{label}:</span>
+      <span className={"text-sm font-semibold text-white " + valueClassName}>{value}</span>
     </div>
   );
 
   const InputBase =
-    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-indigo-100";
+    "w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white shadow-sm outline-none ring-0 placeholder:text-slate-300 focus:border-white/15 focus:ring-4 focus:ring-indigo-300/30";
   const ButtonBase =
-    "inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-60";
+    "inline-flex items-center justify-center rounded-2xl px-3 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99] disabled:opacity-60 focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
   const IconButtonBase =
-    "inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[0.99]";
+    "inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm font-semibold text-slate-100 shadow-sm transition hover:bg-white/15 hover:-translate-y-[1px] active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
 
-  const trackerMeta: Record<
-    TrackerType,
-    { title: string; subtitle: string; accent: string; chip: string }
-  > = {
-    Mood: {
-      title: "Mood",
-      subtitle: "How the user felt",
-      accent: "from-fuchsia-500 to-pink-500",
-      chip: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
-    },
-    Sleep: {
-      title: "Sleep",
-      subtitle: "Bed, wake & quality",
-      accent: "from-indigo-500 to-sky-500",
-      chip: "bg-indigo-50 text-indigo-700 border-indigo-100",
-    },
-    Steps: {
-      title: "Steps",
-      subtitle: "Activity & count",
-      accent: "from-emerald-500 to-lime-500",
-      chip: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    },
-    Hydration: {
-      title: "Hydration",
-      subtitle: "Water intake",
-      accent: "from-sky-500 to-cyan-500",
-      chip: "bg-sky-50 text-sky-700 border-sky-100",
-    },
-    Habits: {
-      title: "Habits",
-      subtitle: "Daily habit completion",
-      accent: "from-amber-500 to-orange-500",
-      chip: "bg-amber-50 text-amber-800 border-amber-100",
-    },
-    Food: {
-      title: "Food",
-      subtitle: "Meals & macros",
-      accent: "from-rose-500 to-red-500",
-      chip: "bg-rose-50 text-rose-700 border-rose-100",
-    },
-  };
+  const trackerMeta: Record<TrackerType, { title: string; subtitle: string; accent: string; chip: string; glow: string }> =
+    {
+      Mood: {
+        title: "Mood",
+        subtitle: "How the user felt",
+        accent: "from-fuchsia-500 to-pink-500",
+        chip: "bg-fuchsia-500/10 text-fuchsia-100 border-fuchsia-400/20",
+        glow: "bg-fuchsia-500/10",
+      },
+      Sleep: {
+        title: "Sleep",
+        subtitle: "Bed, wake & quality",
+        accent: "from-indigo-500 to-sky-500",
+        chip: "bg-indigo-500/10 text-indigo-100 border-indigo-400/20",
+        glow: "bg-indigo-500/10",
+      },
+      Steps: {
+        title: "Steps",
+        subtitle: "Activity & count",
+        accent: "from-emerald-500 to-lime-500",
+        chip: "bg-emerald-500/10 text-emerald-100 border-emerald-400/20",
+        glow: "bg-emerald-500/10",
+      },
+      Hydration: {
+        title: "Hydration",
+        subtitle: "Water intake",
+        accent: "from-sky-500 to-cyan-500",
+        chip: "bg-sky-500/10 text-sky-100 border-sky-400/20",
+        glow: "bg-sky-500/10",
+      },
+      Habits: {
+        title: "Habits",
+        subtitle: "Daily habit completion",
+        accent: "from-amber-500 to-orange-500",
+        chip: "bg-amber-500/10 text-amber-100 border-amber-400/20",
+        glow: "bg-amber-500/10",
+      },
+      Food: {
+        title: "Food",
+        subtitle: "Meals & macros",
+        accent: "from-rose-500 to-red-500",
+        chip: "bg-rose-500/10 text-rose-100 border-rose-400/20",
+        glow: "bg-rose-500/10",
+      },
+    };
 
   const renderTracker = (title: string, arr: any[], type: TrackerType) => {
     const meta = trackerMeta[type];
@@ -269,12 +272,12 @@ export default function UserDetailsPage() {
           <div>
             <div className="flex items-center gap-2">
               <div className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${meta.accent}`} />
-              <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+              <h3 className="text-lg font-bold text-white">{title}</h3>
               <span className={`ml-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${meta.chip}`}>
                 {Array.isArray(arr) ? arr.length : 0}
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-500">{meta.subtitle}</p>
+            <p className="mt-1 text-sm text-slate-300">{meta.subtitle}</p>
           </div>
         </div>
 
@@ -283,18 +286,31 @@ export default function UserDetailsPage() {
             {arr.map((item: any) => (
               <div
                 key={item.id}
-                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+                className={[
+                  "group relative overflow-hidden rounded-3xl",
+                  "border border-white/10 bg-white/[0.06] backdrop-blur-xl",
+                  "shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)]",
+                  "transition-all duration-300",
+                  "hover:-translate-y-[2px] hover:shadow-[0_28px_80px_-54px_rgba(0,0,0,0.95)]",
+                ].join(" ")}
               >
                 <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${meta.accent}`} />
-                <div className="p-4 sm:p-5">
+                <div
+                  className={[
+                    "pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full blur-3xl",
+                    meta.glow,
+                    "opacity-60 transition-opacity duration-300 group-hover:opacity-90",
+                  ].join(" ")}
+                />
+
+                <div className="relative p-4 sm:p-5">
                   {editing?.type === type && editing.id === item.id ? (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">Editing {meta.title} entry</p>
-                          <p className="text-xs text-slate-500">Make changes and save.</p>
+                          <p className="text-sm font-semibold text-white">Editing {meta.title} entry</p>
+                          <p className="text-xs text-slate-300">Make changes and save.</p>
                         </div>
-                        {/* removed ID display (UI only) */}
                       </div>
 
                       {type === "Mood" && (
@@ -409,9 +425,7 @@ export default function UserDetailsPage() {
                             <input
                               type="number"
                               value={editValues.WaterIntakeLiters}
-                              onChange={(e) =>
-                                setEditValues({ ...editValues, WaterIntakeLiters: e.target.value })
-                              }
+                              onChange={(e) => setEditValues({ ...editValues, WaterIntakeLiters: e.target.value })}
                               className={InputBase}
                               placeholder="e.g. 2.5"
                             />
@@ -432,13 +446,13 @@ export default function UserDetailsPage() {
                             />
                           </div>
                           <div className="flex items-end">
-                            <label className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                              <span className="text-sm font-medium text-slate-700">Completed</span>
+                            <label className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                              <span className="text-sm font-medium text-slate-100">Completed</span>
                               <input
                                 type="checkbox"
                                 checked={editValues.completed}
                                 onChange={(e) => setEditValues({ ...editValues, completed: e.target.checked })}
-                                className="h-4 w-4 accent-indigo-600"
+                                className="h-4 w-4 accent-indigo-500"
                               />
                             </label>
                           </div>
@@ -526,14 +540,15 @@ export default function UserDetailsPage() {
                       <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
                         <button
                           onClick={saveEdit}
-                          className={`${ButtonBase} bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200`}
+                          className={[
+                            ButtonBase,
+                            "text-white bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500",
+                            "shadow-[0_16px_45px_-30px_rgba(99,102,241,0.85)] hover:-translate-y-[1px]",
+                          ].join(" ")}
                         >
                           Save changes
                         </button>
-                        <button
-                          onClick={() => setEditing(null)}
-                          className={`${ButtonBase} bg-slate-100 text-slate-800 hover:bg-slate-200`}
-                        >
+                        <button onClick={() => setEditing(null)} className={`${ButtonBase} border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15 hover:-translate-y-[1px]`}>
                           Cancel
                         </button>
                       </div>
@@ -542,9 +557,7 @@ export default function UserDetailsPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.chip}`}
-                          >
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.chip}`}>
                             {meta.title}
                           </span>
                         </div>
@@ -556,7 +569,7 @@ export default function UserDetailsPage() {
                               <InfoRow label="Date" value={new Date(item.date).toLocaleString()} />
                               <div className="space-y-1 sm:col-span-2">
                                 <FieldLabel>Notes</FieldLabel>
-                                <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                                <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-100">
                                   {item.notes || <span className="text-slate-400">No notes</span>}
                                 </div>
                               </div>
@@ -603,15 +616,15 @@ export default function UserDetailsPage() {
                       </div>
 
                       <div className="flex gap-2 sm:flex-col sm:items-stretch">
-                        <button
-                          onClick={() => startEdit(type, item)}
-                          className={`${IconButtonBase} hover:border-indigo-200`}
-                        >
+                        <button onClick={() => startEdit(type, item)} className={IconButtonBase}>
                           Edit
                         </button>
                         <button
                           onClick={() => deleteItem(type, item.id)}
-                          className={`${IconButtonBase} border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100`}
+                          className={[
+                            IconButtonBase,
+                            "border border-rose-400/20 bg-rose-500/10 text-rose-100 hover:bg-rose-500/15",
+                          ].join(" ")}
                         >
                           Delete
                         </button>
@@ -623,9 +636,9 @@ export default function UserDetailsPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
-            <p className="text-sm font-medium text-slate-700">No entries recorded.</p>
-            <p className="mt-1 text-xs text-slate-500">When the user adds data, it will show up here.</p>
+          <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.06] p-6 text-center backdrop-blur-xl">
+            <p className="text-sm font-medium text-white">No entries recorded.</p>
+            <p className="mt-1 text-xs text-slate-300">When the user adds data, it will show up here.</p>
           </div>
         )}
       </section>
@@ -634,15 +647,18 @@ export default function UserDetailsPage() {
 
   if (loading)
     return (
-      <div className="min-h-[60vh] bg-slate-50">
-        <div className="mx-auto max-w-5xl p-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
+      <div className="min-h-screen bg-slate-950">
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        </div>
+        <div className="relative mx-auto max-w-5xl p-6">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+            <div className="h-5 w-40 animate-pulse rounded bg-white/10" />
             <div className="mt-4 space-y-2">
-              <div className="h-3 w-2/3 animate-pulse rounded bg-slate-100" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-slate-100" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-white/10" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-white/10" />
             </div>
-            <div className="mt-6 h-40 animate-pulse rounded-xl bg-slate-100" />
+            <div className="mt-6 h-40 animate-pulse rounded-2xl bg-white/10" />
           </div>
         </div>
       </div>
@@ -650,14 +666,18 @@ export default function UserDetailsPage() {
 
   if (error)
     return (
-      <div className="min-h-[60vh] bg-slate-50">
-        <div className="mx-auto max-w-5xl p-6">
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-700 shadow-sm">
-            <div className="text-sm font-semibold">Something went wrong</div>
+      <div className="min-h-screen bg-slate-950">
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto max-w-5xl p-6">
+          <div className="rounded-3xl border border-rose-400/20 bg-white/[0.06] p-5 text-rose-200 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+            <div className="text-sm font-semibold text-white">Something went wrong</div>
             <div className="mt-1 text-sm">{error}</div>
             <button
               onClick={load}
-              className="mt-4 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+              className="mt-4 rounded-2xl bg-gradient-to-r from-rose-500 to-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:-translate-y-[1px] transition focus:outline-none focus:ring-4 focus:ring-rose-300/30"
             >
               Retry
             </button>
@@ -668,9 +688,12 @@ export default function UserDetailsPage() {
 
   if (!user)
     return (
-      <div className="min-h-[60vh] bg-slate-50">
-        <div className="mx-auto max-w-5xl p-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-700 shadow-sm">
+      <div className="min-h-screen bg-slate-950">
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        </div>
+        <div className="relative mx-auto max-w-5xl p-6">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 text-slate-100 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-xl">
             No user found.
           </div>
         </div>
@@ -678,38 +701,41 @@ export default function UserDetailsPage() {
     );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-5xl p-6">
-        <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div className="min-h-screen bg-slate-950">
+ 
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        <div className="absolute bottom-[-140px] left-[8%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="absolute bottom-[-160px] right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto max-w-5xl p-6">
+        <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_18px_60px_-38px_rgba(0,0,0,0.9)] backdrop-blur-xl">
           <div className="relative p-6 sm:p-8">
-            <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 opacity-15" />
+            <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(99,102,241,0.18),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(56,189,248,0.14),transparent_50%)]" />
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                  User Details
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">Admin overview of profile and trackers.</p>
+                <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">User Details</h2>
+                <p className="mt-1 text-sm text-slate-300">Admin overview of profile and trackers.</p>
 
                 <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Name</div>
-                    <div className="mt-1 truncate text-sm font-semibold text-slate-900">{user.name}</div>
+                  <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs font-medium text-slate-300">Name</div>
+                    <div className="mt-1 truncate text-sm font-semibold text-white">{user.name}</div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Email</div>
-                    <div className="mt-1 truncate text-sm font-semibold text-slate-900">{user.email}</div>
+                  <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs font-medium text-slate-300">Email</div>
+                    <div className="mt-1 truncate text-sm font-semibold text-white">{user.email}</div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Roles</div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">
-                      {user.roles?.length ? user.roles.join(", ") : "—"}
-                    </div>
+                  <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs font-medium text-slate-300">Roles</div>
+                    <div className="mt-1 text-sm font-semibold text-white">{user.roles?.length ? user.roles.join(", ") : "—"}</div>
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <button onClick={load} className={`${IconButtonBase} border-slate-200`}>
+                <button onClick={load} className={IconButtonBase}>
                   Refresh
                 </button>
               </div>
@@ -717,7 +743,7 @@ export default function UserDetailsPage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:p-6">
           {renderTracker("Mood Entries", trackers.Mood, "Mood")}
           {renderTracker("Sleep Records", trackers.Sleep, "Sleep")}
           {renderTracker("Step Records", trackers.Steps, "Steps")}

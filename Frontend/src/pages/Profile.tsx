@@ -199,11 +199,14 @@ export default function ProfilePage() {
   };
 
   const InputBase =
-    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-indigo-100";
+    "w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white shadow-sm outline-none placeholder:text-slate-300 focus:border-white/15 focus:ring-4 focus:ring-indigo-300/30";
   const ButtonBase =
-    "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99]";
+    "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
   const SmallButtonBase =
-    "inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99]";
+    "inline-flex items-center justify-center rounded-2xl px-3 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
+
+  const CardBase =
+    "rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_18px_60px_-38px_rgba(0,0,0,0.9)] backdrop-blur-xl";
 
   const goBack = () => {
     // IMPORTANT: keep original behavior
@@ -213,18 +216,24 @@ export default function ProfilePage() {
 
   if (loading)
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-3xl p-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="h-6 w-40 animate-pulse rounded bg-slate-100" />
+      <div className="min-h-screen bg-slate-950">
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+          <div className="absolute bottom-[-140px] left-[8%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          <div className="absolute bottom-[-160px] right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto max-w-3xl p-6">
+          <div className={CardBase + " p-6"}>
+            <div className="h-6 w-40 animate-pulse rounded bg-white/10" />
             <div className="mt-4 flex items-center gap-4">
-              <div className="h-24 w-24 animate-pulse rounded-full bg-slate-100" />
+              <div className="h-24 w-24 animate-pulse rounded-full bg-white/10" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-2/3 animate-pulse rounded bg-slate-100" />
-                <div className="h-3 w-1/2 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-2/3 animate-pulse rounded bg-white/10" />
+                <div className="h-3 w-1/2 animate-pulse rounded bg-white/10" />
               </div>
             </div>
-            <div className="mt-6 h-40 animate-pulse rounded-2xl bg-slate-100" />
+            <div className="mt-6 h-40 animate-pulse rounded-2xl bg-white/10" />
           </div>
         </div>
       </div>
@@ -232,10 +241,14 @@ export default function ProfilePage() {
 
   if (error && !profile)
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-3xl p-6">
-          <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-rose-700 shadow-sm">
-            <div className="text-sm font-semibold">Something went wrong</div>
+      <div className="min-h-screen bg-slate-950">
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto max-w-3xl p-6">
+          <div className="rounded-3xl border border-rose-400/20 bg-white/[0.06] p-5 text-rose-200 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+            <div className="text-sm font-semibold text-white">Something went wrong</div>
             <div className="mt-1 text-sm">{error}</div>
           </div>
         </div>
@@ -246,22 +259,29 @@ export default function ProfilePage() {
 
   if (isAdmin) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-3xl p-6">
-          <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="min-h-screen bg-slate-950">
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+          <div className="absolute bottom-[-140px] left-[8%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          <div className="absolute bottom-[-160px] right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto max-w-3xl p-6">
+          <div className={`mb-6 ${CardBase}`}>
             <div className="relative p-6 sm:p-8">
-              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 opacity-15" />
+              <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(99,102,241,0.18),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(56,189,248,0.14),transparent_50%)]" />
               <div className="relative flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                    Profile
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">Admin account</p>
+                  <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Profile</h2>
+                  <p className="mt-1 text-sm text-slate-300">Admin account</p>
                 </div>
 
                 <button
                   onClick={goBack}
-                  className={ButtonBase + " border border-slate-200 bg-white text-slate-800 hover:bg-slate-50"}
+                  className={[
+                    ButtonBase,
+                    "border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15 hover:-translate-y-[1px]",
+                  ].join(" ")}
                 >
                   Back
                 </button>
@@ -269,24 +289,24 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className={CardBase + " p-6"}>
             <div className="flex items-center gap-5">
-              <div className="h-24 w-24 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+              <div className="h-24 w-24 overflow-hidden rounded-full border border-white/10 bg-white/10">
                 {profile.profileImageUrl ? (
                   <img src={profile.profileImageUrl} alt="avatar" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xl font-extrabold text-slate-700">
+                  <div className="flex h-full w-full items-center justify-center text-xl font-extrabold text-white">
                     {profile.email[0].toUpperCase()}
                   </div>
                 )}
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xl font-bold text-slate-900">{profile.email}</div>
-                <div className="mt-1 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                <div className="truncate text-xl font-bold text-white">{profile.email}</div>
+                <div className="mt-1 inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-100">
                   Admin Account
                 </div>
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-100">
                   This is an admin account. Personal profile fields are hidden.
                 </div>
               </div>
@@ -298,24 +318,29 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-3xl p-6">
-        <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div className="min-h-screen bg-slate-950">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        <div className="absolute bottom-[-140px] left-[8%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="absolute bottom-[-160px] right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto max-w-3xl p-6">
+        <div className={`mb-6 ${CardBase}`}>
           <div className="relative p-6 sm:p-8">
-            <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-fuchsia-600 via-pink-500 to-rose-500 opacity-15" />
+            <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(236,72,153,0.14),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(244,63,94,0.14),transparent_50%)]" />
             <div className="relative flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                  Profile
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Manage your personal info and security settings.
-                </p>
+                <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Profile</h2>
+                <p className="mt-1 text-sm text-slate-300">Manage your personal info and security settings.</p>
               </div>
 
               <button
                 onClick={goBack}
-                className={ButtonBase + " border border-slate-200 bg-white text-slate-800 hover:bg-slate-50"}
+                className={[
+                  ButtonBase,
+                  "border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15 hover:-translate-y-[1px]",
+                ].join(" ")}
               >
                 Back
               </button>
@@ -324,43 +349,45 @@ export default function ProfilePage() {
         </div>
 
         {error && (
-          <div className="mb-6 rounded-3xl border border-rose-200 bg-rose-50 p-5 text-rose-700 shadow-sm">
-            <div className="text-sm font-semibold">Could not complete request</div>
+          <div className="mb-6 rounded-3xl border border-rose-400/20 bg-white/[0.06] p-5 text-rose-200 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+            <div className="text-sm font-semibold text-white">Could not complete request</div>
             <div className="mt-1 text-sm">{error}</div>
           </div>
         )}
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className={CardBase + " p-6"}>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-            <div className="relative h-28 w-28 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+            <div className="relative h-28 w-28 overflow-hidden rounded-full border border-white/10 bg-white/10">
               {profile.profileImageUrl ? (
                 <img src={profile.profileImageUrl} alt="avatar" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-xl font-extrabold text-slate-700">
+                <div className="flex h-full w-full items-center justify-center text-xl font-extrabold text-white">
                   {(profile.name || profile.email)[0].toUpperCase()}
                 </div>
               )}
+
+              <div className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/10" />
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="truncate text-2xl font-extrabold tracking-tight text-slate-900">
+              <div className="truncate text-2xl font-extrabold tracking-tight text-white">
                 {profile.name || profile.email}
               </div>
-              <div className="mt-1 text-sm text-slate-600">{profile.email}</div>
+              <div className="mt-1 text-sm text-slate-300">{profile.email}</div>
 
-              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <span className="font-semibold">Bio:</span>{" "}
-                <span className={profile.bio ? "text-slate-700" : "text-slate-400"}>
+              <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-100">
+                <span className="font-semibold text-white">Bio:</span>{" "}
+                <span className={profile.bio ? "text-slate-100" : "text-slate-400"}>
                   {profile.bio || "No bio added"}
                 </span>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <label
-                  className={
-                    SmallButtonBase +
-                    " border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 cursor-pointer"
-                  }
+                  className={[
+                    SmallButtonBase,
+                    "border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15 cursor-pointer hover:-translate-y-[1px]",
+                  ].join(" ")}
                 >
                   {uploading ? "Uploading..." : "Change Photo"}
                   <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
@@ -369,7 +396,10 @@ export default function ProfilePage() {
                 {profile.profileImageUrl && (
                   <button
                     onClick={deletePhoto}
-                    className={SmallButtonBase + " border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"}
+                    className={[
+                      SmallButtonBase,
+                      "border border-rose-400/20 bg-rose-500/10 text-rose-100 hover:bg-rose-500/15 hover:-translate-y-[1px]",
+                    ].join(" ")}
                   >
                     Delete Photo
                   </button>
@@ -378,15 +408,29 @@ export default function ProfilePage() {
                 {!editing ? (
                   <button
                     onClick={() => setEditing(true)}
-                    className={SmallButtonBase + " bg-indigo-600 text-white hover:bg-indigo-700"}
+                    className={[
+                      SmallButtonBase,
+                      "relative overflow-hidden text-white",
+                      "bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500",
+                      "shadow-[0_16px_45px_-30px_rgba(99,102,241,0.85)]",
+                      "hover:-translate-y-[1px]",
+                    ].join(" ")}
                   >
-                    Edit Profile
+                    <span
+                      className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 hover:opacity-100 bg-[radial-gradient(500px_circle_at_20%_0%,rgba(255,255,255,0.18),transparent_40%)]"
+                      aria-hidden="true"
+                    />
+                    <span className="relative">Edit Profile</span>
                   </button>
                 ) : (
                   <>
                     <button
                       onClick={save}
-                      className={SmallButtonBase + " bg-emerald-600 text-white hover:bg-emerald-700"}
+                      className={[
+                        SmallButtonBase,
+                        "text-white bg-gradient-to-r from-emerald-600 to-lime-500",
+                        "shadow-[0_16px_45px_-30px_rgba(16,185,129,0.6)] hover:-translate-y-[1px]",
+                      ].join(" ")}
                     >
                       Save
                     </button>
@@ -395,7 +439,10 @@ export default function ProfilePage() {
                         setEditing(false);
                         setForm(profile);
                       }}
-                      className={SmallButtonBase + " bg-slate-100 text-slate-800 hover:bg-slate-200"}
+                      className={[
+                        SmallButtonBase,
+                        "border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15 hover:-translate-y-[1px]",
+                      ].join(" ")}
                     >
                       Cancel
                     </button>
@@ -404,7 +451,11 @@ export default function ProfilePage() {
 
                 <button
                   onClick={() => setShowPasswordModal(true)}
-                  className={SmallButtonBase + " bg-purple-600 text-white hover:bg-purple-700"}
+                  className={[
+                    SmallButtonBase,
+                    "text-white bg-gradient-to-r from-purple-600 to-indigo-600",
+                    "shadow-[0_16px_45px_-30px_rgba(124,58,237,0.6)] hover:-translate-y-[1px]",
+                  ].join(" ")}
                 >
                   Change Password
                 </button>
@@ -414,13 +465,13 @@ export default function ProfilePage() {
         </div>
 
         {!editing ? (
-          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className={"mt-6 " + CardBase + " p-6"}>
             <div className="mb-4 flex items-end justify-between">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Details</div>
-                <div className="text-xs text-slate-500">Personal metrics & preferences</div>
+                <div className="text-sm font-semibold text-white">Details</div>
+                <div className="text-xs text-slate-300">Personal metrics & preferences</div>
               </div>
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-100">
                 BMI: {bmi ?? "—"}
               </span>
             </div>
@@ -435,10 +486,10 @@ export default function ProfilePage() {
             </div>
           </div>
         ) : (
-          <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className={"mt-6 " + CardBase + " p-6"}>
             <div className="mb-4">
-              <div className="text-sm font-semibold text-slate-900">Edit details</div>
-              <div className="text-xs text-slate-500">Update your profile information</div>
+              <div className="text-sm font-semibold text-white">Edit details</div>
+              <div className="text-xs text-slate-300">Update your profile information</div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -456,7 +507,7 @@ export default function ProfilePage() {
               <Input label="Goals" value={form.goals} set={(v) => setForm({ ...form, goals: v })} inputClass={InputBase} />
               <div className="sm:col-span-2">
                 <label className="block">
-                  <span className="text-xs font-medium text-slate-600">Bio</span>
+                  <span className="text-xs font-medium text-slate-300">Bio</span>
                   <textarea
                     value={form.bio}
                     onChange={(e) => setForm({ ...form, bio: e.target.value })}
@@ -469,19 +520,19 @@ export default function ProfilePage() {
         )}
 
         {showPasswordModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 shadow-[0_28px_80px_-54px_rgba(0,0,0,0.95)] backdrop-blur-2xl">
               <div className="relative p-6">
-                <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-15" />
+                <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(124,58,237,0.20),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(99,102,241,0.14),transparent_50%)]" />
                 <div className="relative">
-                  <h2 className="text-xl font-extrabold tracking-tight text-slate-900">Change Password</h2>
-                  <p className="mt-1 text-sm text-slate-500">Keep your account secure.</p>
+                  <h2 className="text-xl font-extrabold tracking-tight text-white">Change Password</h2>
+                  <p className="mt-1 text-sm text-slate-300">Keep your account secure.</p>
                 </div>
               </div>
 
               <div className="px-6 pb-6">
                 {passwordError && (
-                  <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  <div className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-100">
                     {passwordError}
                   </div>
                 )}
@@ -489,7 +540,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   <div className="relative">
                     <label className="block">
-                      <span className="text-xs font-medium text-slate-600">Old Password</span>
+                      <span className="text-xs font-medium text-slate-300">Old Password</span>
                       <input
                         type={showOld ? "text" : "password"}
                         value={oldPassword}
@@ -500,7 +551,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowOld(!showOld)}
-                      className="absolute right-3 top-9 rounded-lg p-1 text-slate-600 hover:bg-slate-100"
+                      className="absolute right-3 top-9 rounded-lg p-1 text-slate-200 hover:bg-white/10"
                       aria-label="Toggle old password visibility"
                     >
                       {showOld ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -509,7 +560,7 @@ export default function ProfilePage() {
 
                   <div className="relative">
                     <label className="block">
-                      <span className="text-xs font-medium text-slate-600">New Password</span>
+                      <span className="text-xs font-medium text-slate-300">New Password</span>
                       <input
                         type={showNew ? "text" : "password"}
                         value={newPassword}
@@ -520,22 +571,22 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowNew(!showNew)}
-                      className="absolute right-3 top-9 rounded-lg p-1 text-slate-600 hover:bg-slate-100"
+                      className="absolute right-3 top-9 rounded-lg p-1 text-slate-200 hover:bg-white/10"
                       aria-label="Toggle new password visibility"
                     >
                       {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
 
                     {newPassword && (
-                      <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-700">
-                        Strength: <span className="font-semibold">{evaluateStrength(newPassword)}</span>
+                      <div className="mt-2 rounded-2xl border border-white/10 bg-black/20 px-4 py-2 text-xs text-slate-100">
+                        Strength: <span className="font-semibold text-white">{evaluateStrength(newPassword)}</span>
                       </div>
                     )}
                   </div>
 
                   <div className="relative">
                     <label className="block">
-                      <span className="text-xs font-medium text-slate-600">Confirm New Password</span>
+                      <span className="text-xs font-medium text-slate-300">Confirm New Password</span>
                       <input
                         type={showConfirm ? "text" : "password"}
                         value={confirmNewPassword}
@@ -546,7 +597,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowConfirm(!showConfirm)}
-                      className="absolute right-3 top-9 rounded-lg p-1 text-slate-600 hover:bg-slate-100"
+                      className="absolute right-3 top-9 rounded-lg p-1 text-slate-200 hover:bg-white/10"
                       aria-label="Toggle confirm password visibility"
                     >
                       {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -557,13 +608,17 @@ export default function ProfilePage() {
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
                     onClick={() => setShowPasswordModal(false)}
-                    className={ButtonBase + " bg-slate-100 text-slate-800 hover:bg-slate-200"}
+                    className={ButtonBase + " border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15"}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={changePassword}
-                    className={ButtonBase + " bg-purple-600 text-white hover:bg-purple-700"}
+                    className={[
+                      ButtonBase,
+                      "text-white bg-gradient-to-r from-purple-600 to-indigo-600",
+                      "shadow-[0_16px_45px_-30px_rgba(124,58,237,0.6)]",
+                    ].join(" ")}
                     disabled={passwordLoading}
                   >
                     {passwordLoading ? "Saving..." : "Save"}
@@ -573,6 +628,10 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+
+        <div className="hidden">
+          <input className={InputBase} />
+        </div>
       </div>
     </div>
   );
@@ -580,9 +639,12 @@ export default function ProfilePage() {
 
 function Field({ label, value }: { label: string; value: any }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-xs font-medium text-slate-500">{label}</div>
-      <div className="mt-1 text-base font-semibold text-slate-900">{value || "—"}</div>
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/10 blur-3xl opacity-60" />
+      <div className="relative">
+        <div className="text-xs font-medium text-slate-300">{label}</div>
+        <div className="mt-1 text-base font-semibold text-white">{value || "—"}</div>
+      </div>
     </div>
   );
 }
@@ -601,7 +663,7 @@ function Input({
   return (
     <div>
       <label className="block">
-        <span className="text-xs font-medium text-slate-600">{label}</span>
+        <span className="text-xs font-medium text-slate-300">{label}</span>
         <input
           type={label.toLowerCase().includes("password") ? "password" : "text"}
           className={inputClass + " mt-1"}
@@ -629,12 +691,8 @@ function Select({
   return (
     <div>
       <label className="block">
-        <span className="text-xs font-medium text-slate-600">{label}</span>
-        <select
-          className={inputClass + " mt-1"}
-          value={value || ""}
-          onChange={(e) => set(e.target.value)}
-        >
+        <span className="text-xs font-medium text-slate-300">{label}</span>
+        <select className={inputClass + " mt-1"} value={value || ""} onChange={(e) => set(e.target.value)}>
           <option value="">Select…</option>
           {options.map((o) => (
             <option key={o} value={o}>

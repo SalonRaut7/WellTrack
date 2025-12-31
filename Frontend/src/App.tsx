@@ -62,7 +62,7 @@ export default function App() {
   return (
     <div className="min-h-screen">
       {isAuthenticated && <NavBar />}
-      <div className={isAuthenticated ? "pt-20" : ""}>
+      <div className={isAuthenticated ? "pt-20 md:pt-16" : ""}>
         <Routes>
           <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

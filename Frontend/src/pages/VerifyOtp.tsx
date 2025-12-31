@@ -49,9 +49,7 @@ export default function VerifyOtp() {
         setMsg("OTP verified. You can now reset password.");
         setTimeout(
           () =>
-            navigate(
-              `/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(otp)}`
-            ),
+            navigate(`/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(otp)}`),
           900
         );
       }
@@ -87,42 +85,50 @@ export default function VerifyOtp() {
   };
 
   const InputBase =
-    "w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-base tracking-[0.35em] text-center text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-indigo-100";
+    "w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-base tracking-[0.35em] text-center text-white shadow-sm outline-none placeholder:text-slate-300 focus:border-white/15 focus:ring-4 focus:ring-indigo-300/30";
   const ButtonBase =
-    "inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-100";
+    "inline-flex w-full items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
+  const CardBase =
+    "overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_18px_60px_-38px_rgba(0,0,0,0.9)] backdrop-blur-xl";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
-      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-slate-950">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        <div className="absolute bottom-[-140px] left-[8%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="absolute bottom-[-160px] right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
           <div className="mb-6 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white shadow-[0_18px_40px_-30px_rgba(0,0,0,0.9)] backdrop-blur">
               <KeyRound className="h-5 w-5" />
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-2xl font-extrabold tracking-tight text-white">
               {mode === "register" ? "Verify email" : "Verify OTP"}
             </h1>
             {email && (
-              <p className="mt-1 text-sm text-slate-500">
-                Enter the code sent to <span className="font-semibold text-slate-700">{email}</span>
+              <p className="mt-1 text-sm text-slate-300">
+                Enter the code sent to <span className="font-semibold text-white">{email}</span>
               </p>
             )}
           </div>
 
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500" />
+          <div className={CardBase}>
+            <div className="h-1.5 w-full bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500" />
 
             <div className="p-5 sm:p-6">
               {error && (
-                <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                  <div className="font-semibold">Verification failed</div>
-                  <div className="mt-1 text-rose-700">{error}</div>
+                <div className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  <div className="font-semibold text-white">Verification failed</div>
+                  <div className="mt-1">{error}</div>
                 </div>
               )}
               {msg && (
-                <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                  <div className="font-semibold">Success</div>
-                  <div className="mt-1 text-emerald-700">{msg}</div>
+                <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                  <div className="font-semibold text-white">Success</div>
+                  <div className="mt-1">{msg}</div>
                 </div>
               )}
 
@@ -140,12 +146,19 @@ export default function VerifyOtp() {
                   disabled={loading}
                   className={[
                     ButtonBase,
+                    "relative overflow-hidden text-white",
                     loading
-                      ? "bg-slate-300 text-white cursor-not-allowed"
-                      : "bg-slate-900 text-white hover:bg-slate-800",
+                      ? "bg-white/10 text-slate-400 cursor-not-allowed border border-white/10"
+                      : "bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 shadow-[0_16px_45px_-30px_rgba(99,102,241,0.85)] hover:-translate-y-[1px]",
                   ].join(" ")}
                 >
-                  {loading ? "Verifying..." : "Verify"}
+                  {!loading && (
+                    <span
+                      className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 hover:opacity-100 bg-[radial-gradient(500px_circle_at_20%_0%,rgba(255,255,255,0.18),transparent_40%)]"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="relative">{loading ? "Verifying..." : "Verify"}</span>
                 </button>
 
                 <button
@@ -154,27 +167,35 @@ export default function VerifyOtp() {
                   onClick={resendOtp}
                   className={[
                     ButtonBase,
+                    "relative overflow-hidden",
                     resendTimer > 0 || loading
-                      ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                      : "bg-emerald-600 text-white hover:bg-emerald-700",
+                      ? "bg-white/10 text-slate-400 cursor-not-allowed border border-white/10"
+                      : "text-white bg-gradient-to-r from-emerald-600 to-lime-500 shadow-[0_16px_45px_-30px_rgba(16,185,129,0.6)] hover:-translate-y-[1px]",
                   ].join(" ")}
                 >
-                  {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
+                  <span className="relative">
+                    {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
+                  </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => navigate("/login")}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                  className={[
+                    "inline-flex w-full items-center justify-center gap-2 rounded-2xl",
+                    "border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-semibold text-slate-100",
+                    "shadow-sm transition hover:bg-white/15 hover:-translate-y-[1px]",
+                    "focus:outline-none focus:ring-4 focus:ring-indigo-300/30",
+                  ].join(" ")}
                 >
-                  <ArrowLeft className="h-4 w-4 text-slate-500" />
+                  <ArrowLeft className="h-4 w-4 text-slate-200" />
                   Back to login
                 </button>
               </form>
             </div>
           </div>
 
-          <div className="mt-5 text-center text-xs text-slate-500">
+          <div className="mt-5 text-center text-xs text-slate-300">
             Didn’t get a code? You can resend once the timer finishes.
           </div>
         </div>

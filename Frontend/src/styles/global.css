@@ -4,11 +4,7 @@
 @tailwind utilities;
 
 /* small global tweaks */
-html,body,#root {
+html, body, #root {
   height: 100%;
-}
-body {
-  background-color: #f3f4f6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background: #020617; /* slate-950 */
 }

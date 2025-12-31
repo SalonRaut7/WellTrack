@@ -41,31 +41,37 @@ export default function Login() {
   };
 
   const InputBase =
-    "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-slate-300 focus:ring-4 focus:ring-indigo-100";
+    "w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white shadow-sm outline-none placeholder:text-slate-300 focus:border-white/15 focus:ring-4 focus:ring-indigo-300/30";
   const ButtonBase =
-    "inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-100";
+    "inline-flex w-full items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
+
+  const CardBase =
+    "rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_18px_60px_-38px_rgba(0,0,0,0.9)] backdrop-blur-xl";
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-slate-950">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        <div className="absolute bottom-[-140px] left-[8%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="absolute bottom-[-160px] right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
-          {/* Header card */}
-          <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className={"mb-6 overflow-hidden " + CardBase}>
             <div className="relative p-6 sm:p-7">
-              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 opacity-15" />
+              <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(99,102,241,0.20),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(56,189,248,0.16),transparent_50%)]" />
               <div className="relative flex items-start gap-4">
                 <div className="relative">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-sky-500 text-white font-extrabold shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-sky-600 to-cyan-500 text-white font-extrabold shadow-[0_18px_40px_-30px_rgba(0,0,0,0.9)]">
                     W
                   </div>
-                  <div className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-sky-500 opacity-20 blur" />
+                  <div className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-br from-indigo-600 via-sky-600 to-cyan-500 opacity-25 blur" />
                 </div>
 
                 <div className="min-w-0">
-                  <h2 className="text-xl font-extrabold tracking-tight text-slate-900">
-                    Welcome back
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <h2 className="text-xl font-extrabold tracking-tight text-white">Welcome back</h2>
+                  <p className="mt-1 text-sm text-slate-300">
                     Log in to WellTrack — your personal wellness companion.
                   </p>
                 </div>
@@ -73,20 +79,19 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Form card */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className={CardBase + " p-5 sm:p-6"}>
             {error && (
-              <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                <div className="font-semibold">Login failed</div>
-                <div className="mt-1 text-rose-700">{error}</div>
+              <div className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                <div className="font-semibold text-white">Login failed</div>
+                <div className="mt-1">{error}</div>
               </div>
             )}
 
             <form onSubmit={submit} className="space-y-4" autoComplete="off">
               <label className="block">
-                <span className="text-xs font-medium text-slate-600">Email</span>
+                <span className="text-xs font-medium text-slate-300">Email</span>
                 <div className="relative mt-1">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
                   <input
                     name="username"
                     autoComplete="username"
@@ -100,9 +105,9 @@ export default function Login() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-medium text-slate-600">Password</span>
+                <span className="text-xs font-medium text-slate-300">Password</span>
                 <div className="relative mt-1">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
                   <input
                     name="password"
                     autoComplete="current-password"
@@ -115,7 +120,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShow(!show)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-200 hover:bg-white/10 hover:text-white"
                     tabIndex={-1}
                     aria-label={show ? "Hide password" : "Show password"}
                   >
@@ -125,22 +130,35 @@ export default function Login() {
               </label>
 
               <div className="flex items-center justify-between gap-3 text-sm">
-                <Link to="/forgot" className="font-semibold text-indigo-600 hover:underline">
+                <Link to="/forgot" className="font-semibold text-sky-200 hover:text-white hover:underline">
                   Forgot password?
                 </Link>
-                <Link to="/register" className="font-semibold text-emerald-600 hover:underline">
+                <Link to="/register" className="font-semibold text-emerald-200 hover:text-white hover:underline">
                   Create account
                 </Link>
               </div>
 
               <button
                 type="submit"
-                className={ButtonBase + " bg-slate-900 text-white hover:bg-slate-800"}
+                className={[
+                  ButtonBase,
+                  "relative overflow-hidden text-white",
+                  "bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500",
+                  "shadow-[0_16px_45px_-30px_rgba(99,102,241,0.85)]",
+                  "hover:-translate-y-[1px]",
+                ].join(" ")}
               >
-                Login
+                <span
+                  className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 hover:opacity-100 bg-[radial-gradient(500px_circle_at_20%_0%,rgba(255,255,255,0.18),transparent_40%)]"
+                  aria-hidden="true"
+                />
+                <span className="relative">Login</span>
               </button>
-
             </form>
+
+            <div className="mt-5 text-xs text-slate-300">
+              By logging in, you agree to keep your account secure.
+            </div>
           </div>
         </div>
       </div>

@@ -187,65 +187,92 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-6xl p-6">
-        <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div className="min-h-screen bg-slate-950">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-28 left-1/2 h-72 w-[min(1100px,92vw)] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/25 via-sky-500/15 to-cyan-500/20 blur-3xl" />
+        <div className="absolute bottom-[-140px] left-[8%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="absolute bottom-[-160px] right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+      </div>
+
+      <div className="mt-0 mb-6 overflow-hidden relative mx-auto max-w-6xl p-6">
+        <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_18px_60px_-38px_rgba(0,0,0,0.9)] backdrop-blur-xl">
           <div className="relative p-6 sm:p-8">
-            <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 opacity-15" />
+            <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(99,102,241,0.22),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(56,189,248,0.18),transparent_50%)]" />
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h2>
-                <p className="mt-1 text-sm text-slate-500">Your health summary · {rangeLabel()}</p>
+              <div className="min-w-0">
+                <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                  Dashboard
+                </h2>
+                <p className="mt-1 text-sm text-slate-300">Your health summary · {rangeLabel()}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {(["daily", "weekly", "monthly"] as View[]).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setView(v)}
-                    className={[
-                      "rounded-full px-4 py-2 text-sm font-semibold transition",
-                      "border shadow-sm",
-                      view === v
-                        ? "border-indigo-200 bg-indigo-600 text-white shadow-indigo-100"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                    ].join(" ")}
-                  >
-                    {v.charAt(0).toUpperCase() + v.slice(1)}
-                  </button>
-                ))}
+                {(["daily", "weekly", "monthly"] as View[]).map((v) => {
+                  const active = view === v;
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => setView(v)}
+                      className={[
+                        "relative overflow-hidden rounded-full px-4 py-2 text-sm font-semibold",
+                        "transition-all duration-300",
+                        "focus:outline-none focus:ring-4 focus:ring-indigo-300/30",
+                        active
+                          ? "text-white shadow-[0_16px_45px_-30px_rgba(99,102,241,0.85)]"
+                          : "text-slate-200 hover:text-white",
+                        active
+                          ? "bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500"
+                          : "bg-white/10 hover:bg-white/15 border border-white/10",
+                        "hover:-translate-y-[1px]",
+                      ].join(" ")}
+                    >
+                      <span className="relative z-10">
+                        {v.charAt(0).toUpperCase() + v.slice(1)}
+                      </span>
+                      <span
+                        className={[
+                          "pointer-events-none absolute inset-0 opacity-0",
+                          "bg-[radial-gradient(500px_circle_at_20%_0%,rgba(255,255,255,0.18),transparent_40%)]",
+                          "transition-opacity duration-500",
+                          "hover:opacity-100",
+                        ].join(" ")}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-[0_18px_60px_-38px_rgba(0,0,0,0.9)] backdrop-blur-xl">
           <div className="relative p-6 sm:p-7">
-            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 opacity-10" />
+            <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_10%_0%,rgba(244,63,94,0.14),transparent_55%),radial-gradient(900px_circle_at_90%_120%,rgba(99,102,241,0.14),transparent_55%)]" />
+
             <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">Daily motivation</div>
-                <div className="mt-1 text-xs text-slate-600">
+                <div className="text-sm font-semibold text-white">Daily motivation</div>
+                <div className="mt-1 text-xs text-slate-300">
                   {motivation?.date ? `For ${motivation.date}` : "For today"}
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-100">
                   {motivationLoading ? (
                     <div className="space-y-2">
-                      <div className="h-4 w-11/12 animate-pulse rounded bg-slate-200" />
-                      <div className="h-4 w-9/12 animate-pulse rounded bg-slate-200" />
+                      <div className="h-4 w-11/12 animate-pulse rounded bg-white/10" />
+                      <div className="h-4 w-9/12 animate-pulse rounded bg-white/10" />
                     </div>
                   ) : motivationError ? (
-                    <div className="text-rose-700">{motivationError}</div>
+                    <div className="text-rose-300">{motivationError}</div>
                   ) : motivation?.message ? (
-                    <div className="leading-relaxed">{motivation.message}</div>
+                    <div className="leading-relaxed text-slate-100">{motivation.message}</div>
                   ) : (
-                    <div className="text-slate-500">No motivation available yet.</div>
+                    <div className="text-slate-300">No motivation available yet.</div>
                   )}
                 </div>
               </div>
 
-              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700">
+              <span className="inline-flex items-center rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200">
                 Motivation
               </span>
             </div>
@@ -257,14 +284,20 @@ export default function Dashboard() {
             {Array(9)
               .fill(0)
               .map((_, i) => (
-                <div key={i} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div
+                  key={i}
+                  className={[
+                    "rounded-3xl border border-white/10 bg-white/[0.06] p-6 backdrop-blur-xl",
+                    "shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)]",
+                  ].join(" ")}
+                >
                   <div className="flex items-start justify-between">
-                    <div className="h-11 w-11 animate-pulse rounded-2xl bg-slate-100" />
-                    <div className="h-5 w-16 animate-pulse rounded bg-slate-100" />
+                    <div className="h-11 w-11 animate-pulse rounded-2xl bg-white/10" />
+                    <div className="h-5 w-16 animate-pulse rounded bg-white/10" />
                   </div>
                   <div className="mt-4 space-y-2">
-                    <div className="h-3 w-36 animate-pulse rounded bg-slate-100" />
-                    <div className="h-8 w-24 animate-pulse rounded bg-slate-100" />
+                    <div className="h-3 w-36 animate-pulse rounded bg-white/10" />
+                    <div className="h-8 w-24 animate-pulse rounded bg-white/10" />
                   </div>
                 </div>
               ))}
@@ -279,15 +312,15 @@ export default function Dashboard() {
               summary?.mood ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="text-3xl">{summary.mood.emoji}</span>
-                  <span className="text-slate-900">{summary.mood.text}</span>
+                  <span className="text-white">{summary.mood.text}</span>
                 </span>
               ) : (
                 "—"
               )
             }
             icon={<Heart className="h-5 w-5" />}
-            gradient="from-fuchsia-600 to-pink-500"
-            chipClass="bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100"
+            gradient="from-fuchsia-500 to-pink-500"
+            chipClass="bg-fuchsia-500/10 text-fuchsia-100 border-fuchsia-400/20"
             loading={loading}
           />
 
@@ -296,8 +329,8 @@ export default function Dashboard() {
             subtitle={unitLabel()}
             value={summary?.sleepAvg ?? "—"}
             icon={<Moon className="h-5 w-5" />}
-            gradient="from-slate-800 to-indigo-600"
-            chipClass="bg-indigo-50 text-indigo-700 border-indigo-100"
+            gradient="from-indigo-500 to-sky-500"
+            chipClass="bg-indigo-500/10 text-indigo-100 border-indigo-400/20"
             loading={loading}
             suffix={summary?.sleepAvg !== null ? " hrs" : ""}
           />
@@ -307,8 +340,8 @@ export default function Dashboard() {
             subtitle={unitLabel()}
             value={summary?.stepsAvg ?? "—"}
             icon={<Footprints className="h-5 w-5" />}
-            gradient="from-emerald-600 to-lime-500"
-            chipClass="bg-emerald-50 text-emerald-700 border-emerald-100"
+            gradient="from-emerald-500 to-lime-500"
+            chipClass="bg-emerald-500/10 text-emerald-100 border-emerald-400/20"
             loading={loading}
           />
 
@@ -317,8 +350,8 @@ export default function Dashboard() {
             subtitle={unitLabel()}
             value={summary?.hydrationAvg ?? "—"}
             icon={<Droplets className="h-5 w-5" />}
-            gradient="from-sky-600 to-cyan-500"
-            chipClass="bg-sky-50 text-sky-700 border-sky-100"
+            gradient="from-sky-500 to-cyan-500"
+            chipClass="bg-sky-500/10 text-sky-100 border-sky-400/20"
             loading={loading}
             suffix={summary?.hydrationAvg !== null ? " L" : ""}
           />
@@ -328,8 +361,8 @@ export default function Dashboard() {
             subtitle="%"
             value={summary?.habitsRate ?? "—"}
             icon={<CheckCircle2 className="h-5 w-5" />}
-            gradient="from-amber-600 to-orange-500"
-            chipClass="bg-amber-50 text-amber-800 border-amber-100"
+            gradient="from-amber-500 to-orange-500"
+            chipClass="bg-amber-500/10 text-amber-100 border-amber-400/20"
             loading={loading}
             suffix={summary?.habitsRate !== null ? "%" : ""}
           />
@@ -339,8 +372,8 @@ export default function Dashboard() {
             subtitle={unitLabel()}
             value={summary?.caloriesAvg ?? "—"}
             icon={<Utensils className="h-5 w-5" />}
-            gradient="from-rose-600 to-red-500"
-            chipClass="bg-rose-50 text-rose-700 border-rose-100"
+            gradient="from-rose-500 to-red-500"
+            chipClass="bg-rose-500/10 text-rose-100 border-rose-400/20"
             loading={loading}
             suffix={summary?.caloriesAvg !== null ? " kcal" : ""}
           />
@@ -350,8 +383,8 @@ export default function Dashboard() {
             subtitle={unitLabel()}
             value={summary?.proteinAvg ?? "—"}
             icon={<Utensils className="h-5 w-5" />}
-            gradient="from-indigo-600 to-sky-500"
-            chipClass="bg-indigo-50 text-indigo-700 border-indigo-100"
+            gradient="from-indigo-500 to-sky-500"
+            chipClass="bg-indigo-500/10 text-indigo-100 border-indigo-400/20"
             loading={loading}
             suffix={summary?.proteinAvg !== null ? " g" : ""}
           />
@@ -361,8 +394,8 @@ export default function Dashboard() {
             subtitle={unitLabel()}
             value={summary?.carbsAvg ?? "—"}
             icon={<Utensils className="h-5 w-5" />}
-            gradient="from-emerald-600 to-lime-500"
-            chipClass="bg-emerald-50 text-emerald-700 border-emerald-100"
+            gradient="from-emerald-500 to-lime-500"
+            chipClass="bg-emerald-500/10 text-emerald-100 border-emerald-400/20"
             loading={loading}
             suffix={summary?.carbsAvg !== null ? " g" : ""}
           />
@@ -372,8 +405,8 @@ export default function Dashboard() {
             subtitle={unitLabel()}
             value={summary?.fatAvg ?? "—"}
             icon={<Utensils className="h-5 w-5" />}
-            gradient="from-fuchsia-600 to-pink-500"
-            chipClass="bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100"
+            gradient="from-fuchsia-500 to-pink-500"
+            chipClass="bg-fuchsia-500/10 text-fuchsia-100 border-fuchsia-400/20"
             loading={loading}
             suffix={summary?.fatAvg !== null ? " g" : ""}
           />
@@ -403,41 +436,74 @@ function Card({
   suffix?: string;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md">
+    <div
+      className={[
+        "group relative overflow-hidden rounded-3xl",
+        "border border-white/10 bg-white/[0.06] backdrop-blur-xl",
+        "shadow-[0_18px_60px_-42px_rgba(0,0,0,0.9)]",
+        "transition-all duration-300",
+        "hover:-translate-y-[2px] hover:shadow-[0_28px_80px_-54px_rgba(0,0,0,0.95)]",
+      ].join(" ")}
+    >
+
       <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${gradient}`} />
 
-      <div className="flex items-start justify-between gap-3">
-        <div
-          className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-r ${gradient} text-white shadow-sm`}
-        >
-          {icon}
+      <div
+        className={[
+          "pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100",
+          "bg-[radial-gradient(900px_circle_at_15%_0%,rgba(255,255,255,0.10),transparent_55%)]",
+        ].join(" ")}
+      />
+
+      <div className="relative p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div
+            className={[
+              "inline-flex h-11 w-11 items-center justify-center rounded-2xl text-white",
+              `bg-gradient-to-r ${gradient}`,
+              "shadow-[0_18px_40px_-30px_rgba(0,0,0,0.9)]",
+              "transition-transform duration-300 group-hover:scale-[1.05]",
+            ].join(" ")}
+          >
+            {icon}
+          </div>
+
+          {subtitle ? (
+            <span
+              className={[
+                "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                chipClass,
+              ].join(" ")}
+            >
+              {subtitle}
+            </span>
+          ) : null}
         </div>
 
-        {subtitle ? (
-          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${chipClass}`}>
-            {subtitle}
-          </span>
-        ) : null}
-      </div>
+        <div className="mt-4">
+          <div className="text-sm font-medium text-slate-300">{title}</div>
 
-      <div className="mt-4">
-        <div className="text-sm font-medium text-slate-500">{title}</div>
-
-        <div className="mt-1 flex items-baseline gap-1">
-          {loading ? (
-            <div className="h-8 w-28 animate-pulse rounded bg-slate-100" />
-          ) : (
-            <>
-              <div className="text-3xl font-extrabold tracking-tight text-slate-900 tabular-nums">
-                {value}
-              </div>
-              {suffix ? <div className="text-sm font-semibold text-slate-500">{suffix}</div> : null}
-            </>
-          )}
+          <div className="mt-1 flex items-baseline gap-1">
+            {loading ? (
+              <div className="h-8 w-28 animate-pulse rounded bg-white/10" />
+            ) : (
+              <>
+                <div className="text-3xl font-extrabold tracking-tight text-white tabular-nums">
+                  {value}
+                </div>
+                {suffix ? <div className="text-sm font-semibold text-slate-300">{suffix}</div> : null}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-slate-100 opacity-60 blur-2xl transition group-hover:opacity-80" />
+      <div
+        className={[
+          "pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full blur-3xl",
+          "bg-white/10 opacity-60 transition-opacity duration-300 group-hover:opacity-90",
+        ].join(" ")}
+      />
     </div>
   );
 }
