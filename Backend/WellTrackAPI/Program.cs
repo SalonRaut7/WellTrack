@@ -181,6 +181,11 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IImageService, CloudinaryImageService>();
 
+builder.Services.AddScoped<IStepAnalyticsService, StepAnalyticsService>();
+builder.Services.AddScoped<ISleepAnalyticsService, SleepAnalyticsService>();
+builder.Services.AddScoped<IHydrationAnalyticsService, HydrationAnalyticsService>();
+
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
