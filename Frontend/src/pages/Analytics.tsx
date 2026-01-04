@@ -16,6 +16,7 @@ import {
 import { useHydrationChart } from "../hooks/useHydrationChart";
 import { useSleepChart } from "../hooks/useSleepChart";
 import { useStepsChart } from "../hooks/useStepsChart";
+import { useFoodChart } from "../hooks/useFoodChart";
 
 type PredictResult = {
   summary: string;
@@ -42,7 +43,15 @@ function clampNumber(n: any) {
 
 function getNumericKeyFromRow(row: ChartPoint): string | null {
   // Prefer common names
-  const preferred = ["value", "steps", "stepsCount", "hours", "liters", "water", "waterIntakeLiters"];
+  const preferred = [
+    "value",
+    "steps",
+    "stepsCount",
+    "hours",
+    "liters",
+    "water",
+    "waterIntakeLiters",
+  ];
   for (const k of preferred) {
     if (k in row && Number.isFinite(Number(row[k]))) return k;
   }
@@ -117,7 +126,12 @@ function GradientLineChartCard({
         "relative transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_28px_80px_-54px_rgba(0,0,0,0.95)]",
       ].join(" ")}
     >
-      <div className={["absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r opacity-80", gradient].join(" ")} />
+      <div
+        className={[
+          "absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r opacity-80",
+          gradient,
+        ].join(" ")}
+      />
       <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_10%_0%,rgba(99,102,241,0.14),transparent_55%),radial-gradient(800px_circle_at_95%_120%,rgba(56,189,248,0.10),transparent_55%)]" />
 
       <div className="relative p-5 sm:p-6">
@@ -139,7 +153,10 @@ function GradientLineChartCard({
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={normalized} margin={{ top: 10, right: 18, left: -6, bottom: 0 }}>
+              <LineChart
+                data={normalized}
+                margin={{ top: 10, right: 18, left: -6, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id={`${title}-area`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color} stopOpacity={0.35} />
@@ -211,20 +228,33 @@ export default function Analytics() {
   const sleepData = useSleepChart(range);
   const hydrationData = useHydrationChart(range);
 
+  // Food charts (added)
+  const foodData = useFoodChart(range);
+  const foodCalories = foodData?.calories ?? [];
+  const foodProtein = foodData?.protein ?? [];
+  const foodCarbs = foodData?.carbs ?? [];
+  const foodFat = foodData?.fat ?? [];
+
   useEffect(() => {
     const fetchPrediction = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [habitResp, moodResp, sleepResp, stepsResp, hydrationResp, foodResp] =
-          await Promise.all([
-            api.get("/api/habit"),
-            api.get("/api/mood"),
-            api.get("/api/sleep"),
-            api.get("/api/steps"),
-            api.get("/api/hydration"),
-            api.get("/api/foodlog/today"),
-          ]);
+        const [
+          habitResp,
+          moodResp,
+          sleepResp,
+          stepsResp,
+          hydrationResp,
+          foodResp,
+        ] = await Promise.all([
+          api.get("/api/habit"),
+          api.get("/api/mood"),
+          api.get("/api/sleep"),
+          api.get("/api/steps"),
+          api.get("/api/hydration"),
+          api.get("/api/foodlog/today"),
+        ]);
 
         const latestHabit = habitResp.data?.[0] || {};
         const latestMood = moodResp.data?.[0] || {};
@@ -342,7 +372,12 @@ export default function Analytics() {
       <div className="relative mx-auto max-w-5xl p-6">
         <div className={`mb-6 ${CardBase}`}>
           <div className="relative p-6 sm:p-8">
-            <div className={["absolute inset-x-0 top-0 h-24 bg-gradient-to-r opacity-20", meta.bar].join(" ")} />
+            <div
+              className={[
+                "absolute inset-x-0 top-0 h-24 bg-gradient-to-r opacity-20",
+                meta.bar,
+              ].join(" ")}
+            />
             <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(99,102,241,0.18),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(56,189,248,0.14),transparent_50%)]" />
 
             <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -361,7 +396,13 @@ export default function Analytics() {
                   meta.chip,
                 ].join(" ")}
               >
-                <span className={["h-2 w-2 rounded-full", meta.dot, loading ? "animate-pulse" : ""].join(" ")} />
+                <span
+                  className={[
+                    "h-2 w-2 rounded-full",
+                    meta.dot,
+                    loading ? "animate-pulse" : "",
+                  ].join(" ")}
+                />
                 {meta.label}
               </span>
             </div>
@@ -393,7 +434,7 @@ export default function Analytics() {
               title="Sleep"
               subtitle="Hours"
               data={sleepData}
-              color="#818cf8" 
+              color="#818cf8"
               gradient="from-indigo-500 via-sky-500 to-cyan-500"
               unitSuffix="h"
             />
@@ -404,6 +445,42 @@ export default function Analytics() {
               color="#38bdf8"
               gradient="from-sky-500 via-cyan-500 to-teal-500"
               unitSuffix="L"
+            />
+          </div>
+
+          {/* Food charts (added) */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <GradientLineChartCard
+              title="Calories"
+              subtitle="Daily total"
+              data={foodCalories}
+              color="#f97316"
+              gradient="from-orange-500 via-amber-500 to-yellow-400"
+              unitSuffix=" kcal"
+            />
+            <GradientLineChartCard
+              title="Protein"
+              subtitle="Daily total"
+              data={foodProtein}
+              color="#a78bfa"
+              gradient="from-violet-500 via-fuchsia-500 to-pink-500"
+              unitSuffix=" g"
+            />
+            <GradientLineChartCard
+              title="Carbs"
+              subtitle="Daily total"
+              data={foodCarbs}
+              color="#60a5fa"
+              gradient="from-blue-500 via-sky-500 to-cyan-500"
+              unitSuffix=" g"
+            />
+            <GradientLineChartCard
+              title="Fat"
+              subtitle="Daily total"
+              data={foodFat}
+              color="#f472b6"
+              gradient="from-pink-500 via-rose-500 to-red-500"
+              unitSuffix=" g"
             />
           </div>
         </div>
@@ -455,7 +532,9 @@ export default function Analytics() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-white">AI Summary</div>
-                    <div className="mt-1 text-xs text-slate-300">Generated from your latest logs.</div>
+                    <div className="mt-1 text-xs text-slate-300">
+                      Generated from your latest logs.
+                    </div>
                   </div>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-100">
                     Latest
@@ -466,7 +545,9 @@ export default function Analytics() {
                   {prediction.summary}
                 </div>
 
-                <div className="mt-4 text-xs text-slate-300">Tip: Pick one action item you can do today.</div>
+                <div className="mt-4 text-xs text-slate-300">
+                  Tip: Pick one action item you can do today.
+                </div>
               </div>
             </div>
 
@@ -482,7 +563,9 @@ export default function Analytics() {
                 <div className="mb-3 flex items-end justify-between">
                   <div>
                     <div className="text-sm font-semibold text-white">Action Items</div>
-                    <div className="mt-1 text-xs text-slate-300">{displayActionItems.length} items</div>
+                    <div className="mt-1 text-xs text-slate-300">
+                      {displayActionItems.length} items
+                    </div>
                   </div>
 
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-100">
@@ -511,7 +594,9 @@ export default function Analytics() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm text-slate-100 leading-relaxed">{item}</div>
+                            <div className="text-sm text-slate-100 leading-relaxed">
+                              {item}
+                            </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               <span className="inline-flex items-center rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-100">
                                 Action
