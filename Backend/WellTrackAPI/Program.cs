@@ -184,6 +184,7 @@ builder.Services.AddScoped<IImageService, CloudinaryImageService>();
 builder.Services.AddScoped<IStepAnalyticsService, StepAnalyticsService>();
 builder.Services.AddScoped<ISleepAnalyticsService, SleepAnalyticsService>();
 builder.Services.AddScoped<IHydrationAnalyticsService, HydrationAnalyticsService>();
+builder.Services.AddScoped<IFoodAnalyticsService, FoodAnalyticsService>();
 
 
 var app = builder.Build();
