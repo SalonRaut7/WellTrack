@@ -14,6 +14,9 @@ using Serilog;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using WellTrackAPI.Hubs;
+using WellTrackAPI.BackgroundJobs;
+using WellTrackAPI.SignalR;
+using Microsoft.AspNetCore.SignalR;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -164,6 +167,18 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
 
 // Register application services (including auth/email/token)
 builder.Services.AddScoped<IMoodService, MoodService>();
@@ -186,11 +201,17 @@ builder.Services.AddScoped<ISleepAnalyticsService, SleepAnalyticsService>();
 builder.Services.AddScoped<IHydrationAnalyticsService, HydrationAnalyticsService>();
 builder.Services.AddScoped<IFoodAnalyticsService, FoodAnalyticsService>();
 
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddHostedService<HealthNotificationWorker>();
+
+builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
 
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
+
+app.UseCors("CorsPolicy");
 
 //call seed admin
 await SeedData.SeedAdminAsync(app.Services);
