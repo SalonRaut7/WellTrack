@@ -42,11 +42,6 @@ const UserRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-// const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-//   const { isAuthenticated } = useAuth();
-//   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
-// };
-
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   if (isAuthenticated) {

@@ -14,15 +14,19 @@ import {
   User,
   LogOut,
   ChevronDown,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useState, useRef } from "react";
 import api from "../api/axios";
+import { useAppNotifications } from "../notifications/NotificationProvider";
 
 export default function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const auth = useAuth();
+
+  const { notifications, clearNotifications } = useAppNotifications();
 
   const [profile, setProfile] = useState<{
     profileImageUrl?: string | null;
@@ -31,6 +35,9 @@ export default function NavBar() {
 
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -52,6 +59,10 @@ export default function NavBar() {
       if (!dropdownRef.current) return;
       if (!dropdownRef.current.contains(e.target as Node)) {
         setOpen(false);
+      }
+
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
       }
     }
     window.addEventListener("click", handleClick);
@@ -92,6 +103,8 @@ export default function NavBar() {
     if (to === "/admin") return location.pathname === "/admin";
     return location.pathname === to || location.pathname.startsWith(to + "/");
   };
+
+  const notifCount = notifications.length;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50">
@@ -165,7 +178,6 @@ export default function NavBar() {
                   ].join(" ")}
                   title={it.label}
                 >
-              
                   <span
                     className={[
                       "absolute inset-0 rounded-2xl transition-all duration-300",
@@ -175,7 +187,7 @@ export default function NavBar() {
                     ].join(" ")}
                     aria-hidden="true"
                   />
-                  
+
                   <span
                     className={[
                       "pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500",
@@ -198,6 +210,105 @@ export default function NavBar() {
           </div>
 
           <div className="flex items-center gap-2">
+            {auth.isAuthenticated && !isAdmin ? (
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => setNotifOpen((o) => !o)}
+                  className={[
+                    "group inline-flex items-center justify-center",
+                    "h-10 w-10 rounded-2xl",
+                    "bg-white/10 backdrop-blur-xl border border-white/10",
+                    "shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]",
+                    "transition-all duration-300 hover:bg-white/15 hover:-translate-y-[1px]",
+                    "focus:outline-none focus:ring-4 focus:ring-indigo-300/30",
+                  ].join(" ")}
+                  aria-haspopup="menu"
+                  aria-expanded={notifOpen}
+                  title="Notifications"
+                >
+                  <Bell className="h-4 w-4 text-slate-200" />
+
+                  {notifCount > 0 && (
+                    <span
+                      className={[
+                        "absolute -top-1 -right-1 min-w-5 h-5 px-1",
+                        "rounded-full bg-rose-500 text-white",
+                        "text-[11px] font-extrabold",
+                        "flex items-center justify-center",
+                        "ring-2 ring-slate-950/70",
+                      ].join(" ")}
+                    >
+                      {notifCount > 99 ? "99+" : notifCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div
+                    className={[
+                      "absolute right-0 mt-2 w-[340px] max-w-[85vw] overflow-hidden rounded-2xl",
+                      "bg-slate-950/70 backdrop-blur-2xl",
+                      "border border-white/10",
+                      "shadow-[0_28px_80px_-54px_rgba(0,0,0,0.95)]",
+                      "ring-1 ring-black/20",
+                      "origin-top-right animate-[pop_180ms_ease-out]",
+                    ].join(" ")}
+                    role="menu"
+                  >
+                    <style>{`
+                      @keyframes pop {
+                        from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+                        to { opacity: 1; transform: translateY(0) scale(1); }
+                      }
+                    `}</style>
+
+                    <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white">Notifications</div>
+                        <div className="text-xs text-slate-300">{notifCount} total</div>
+                      </div>
+
+                      <button
+                        onClick={() => clearNotifications()}
+                        disabled={notifCount === 0}
+                        className={[
+                          "shrink-0 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                          notifCount === 0
+                            ? "border-white/10 bg-white/5 text-slate-500 cursor-not-allowed"
+                            : "border-rose-400/20 bg-rose-500/10 text-rose-100 hover:bg-rose-500/15",
+                          "transition-colors",
+                        ].join(" ")}
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className="max-h-80 overflow-auto">
+                      {notifCount === 0 ? (
+                        <div className="p-4 text-sm text-slate-300">No notifications yet.</div>
+                      ) : (
+                        <div className="divide-y divide-white/10">
+                          {notifications.map((n) => (
+                            <div key={n.id} className="p-4 hover:bg-white/5">
+                              <div className="min-w-0">
+                                <div className="text-sm text-slate-100 leading-relaxed">
+                                  {n.message}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-400">
+                                  {n.date}
+                                  {n.type ? ` • ${n.type}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             {auth.isAuthenticated ? (
               <div className="relative" ref={dropdownRef}>
                 <button
