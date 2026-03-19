@@ -1,6 +1,8 @@
+using WellTrackAPI.Domain.Entities.Interfaces;
+
 namespace WellTrackAPI.Models
 {
-    public class HabitEntry
+    public class HabitEntry : ITrackerEntity
     {
         public int Id { get; set; }
         public string Name { get; set; } = null!;

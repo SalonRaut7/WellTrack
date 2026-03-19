@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Services;
+using WellTrackAPI.Services.Core;
 
 namespace WellTrackAPI.BackgroundJobs
 {

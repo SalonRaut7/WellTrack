@@ -8,26 +8,46 @@ namespace WellTrackAPI.Mapping
     {
         public AutoMapperProfile()
         {
-            CreateMap<MoodDTO, MoodEntry>();
+            // Tracker entities (bidirectional where applicable)
+            CreateMap<MoodDTO, MoodEntry>()
+                .ForMember(dest => dest.Date, opt => opt.Ignore());
+            CreateMap<MoodEntry, MoodDTO>();
+            
             CreateMap<SleepDTO, SleepEntry>()
-                .ForMember(dest => dest.Hours, opt => opt.Ignore()); // set in service
-            CreateMap<HydrationDTO, HydrationEntry>();
-            CreateMap<StepDTO, StepEntry>();
-            CreateMap<HabitDTO, HabitEntry>();
+                .ForMember(dest => dest.Hours, opt => opt.Ignore()) // set in service or by logic
+                .ForMember(dest => dest.Date, opt => opt.Ignore());
+            CreateMap<SleepEntry, SleepDTO>();
+            
+            CreateMap<HydrationDTO, HydrationEntry>()
+                .ForMember(dest => dest.Date, opt => opt.Ignore());
+            CreateMap<HydrationEntry, HydrationDTO>();
+            
+            CreateMap<StepDTO, StepEntry>()
+                .ForMember(dest => dest.Date, opt => opt.Ignore());
+            CreateMap<StepEntry, StepDTO>();
+            
+            CreateMap<HabitDTO, HabitEntry>()
+                .ForMember(dest => dest.Date, opt => opt.Ignore());
+            CreateMap<HabitEntry, HabitDTO>();
+            
+            // Motivation
             CreateMap<DailyMotivation, DailyMotivationDTO>();
 
+            // Profile
             CreateMap<ApplicationUser, UserProfileDTO>()
                 .ForMember(dest => dest.BMI, opt => opt.Ignore());
             
             CreateMap<UserProfileDTO, ApplicationUser>()
                 .ForMember(dest => dest.ProfileImageUrl, opt => opt.Ignore());
             
+            // Food
             CreateMap<FoodEntry, FoodEntryDTO>();
             CreateMap<FoodEntryDTO, FoodEntry>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.UserId, opt => opt.Ignore()) 
                 .ForMember(dest => dest.Date, opt => opt.Ignore());
             
+            // Admin
             CreateMap<ApplicationUser, AdminUserDTO>();
         }
     }

@@ -1,6 +1,8 @@
+using WellTrackAPI.Domain.Entities.Interfaces;
+
 namespace WellTrackAPI.Models
 {
-    public class SleepEntry
+    public class SleepEntry : ITrackerEntity
     {
         public int Id { get; set; }
 

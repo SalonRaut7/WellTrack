@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using WellTrackAPI.Services;
+using WellTrackAPI.Services.Analytics;
 
 namespace WellTrackAPI.Controllers;
 

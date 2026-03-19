@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Services;
+using WellTrackAPI.Services.Core;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace WellTrackAPI.Controllers

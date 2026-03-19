@@ -1,6 +1,8 @@
+using WellTrackAPI.Domain.Entities.Interfaces;
+
 namespace WellTrackAPI.Models
 {
-    public class StepEntry
+    public class StepEntry : ITrackerEntity
     {
         public int Id { get; set; }
         public int StepsCount { get; set; }

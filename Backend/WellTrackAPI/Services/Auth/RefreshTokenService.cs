@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.ExceptionHandling;
 using WellTrackAPI.Models;
+using WellTrackAPI.Services.Core;
 
 namespace WellTrackAPI.Services
 {

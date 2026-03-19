@@ -1,6 +1,8 @@
+using WellTrackAPI.Domain.Entities.Interfaces;
+
 namespace WellTrackAPI.Models
 {
-    public class MoodEntry
+    public class MoodEntry : ITrackerEntity
     {
         public int Id { get; set; }
         public string Mood { get; set; } = null!; // e.g., Happy, Sad, Anxious

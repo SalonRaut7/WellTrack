@@ -1,6 +1,8 @@
+using WellTrackAPI.Domain.Entities.Interfaces;
+
 namespace WellTrackAPI.Models
 {
-    public class HydrationEntry
+    public class HydrationEntry : ITrackerEntity
     {
         public int Id { get; set; }
         public double WaterIntakeLiters { get; set; }

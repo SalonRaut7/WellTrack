@@ -8,6 +8,10 @@ using WellTrackAPI.Data;
 using WellTrackAPI.Mapping;
 using WellTrackAPI.Models;
 using WellTrackAPI.Services;
+using WellTrackAPI.Services.Trackers;
+using WellTrackAPI.Services.Analytics;
+using WellTrackAPI.Services.Food;
+using WellTrackAPI.Services.Core;
 using WellTrackAPI.Services.Admin;
 using WellTrackAPI.Settings;
 using WellTrackAPI.ExceptionHandling;
@@ -18,6 +22,10 @@ using WellTrackAPI.Hubs;
 using WellTrackAPI.BackgroundJobs;
 using WellTrackAPI.SignalR;
 using Microsoft.AspNetCore.SignalR;
+using WellTrackAPI.DTOs;
+using WellTrackAPI.Application.Services;
+using WellTrackAPI.Infrastructure.Repositories;
+using WellTrackAPI.Infrastructure.Repositories.Interfaces;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -180,6 +188,13 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Register generic infrastructure (repository and services)
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped<IGenericTrackerService<HabitDTO, HabitEntry>, GenericTrackerService<HabitDTO, HabitEntry>>();
+builder.Services.AddScoped<IGenericTrackerService<MoodDTO, MoodEntry>, GenericTrackerService<MoodDTO, MoodEntry>>();
+builder.Services.AddScoped<IGenericTrackerService<SleepDTO, SleepEntry>, GenericTrackerService<SleepDTO, SleepEntry>>();
+builder.Services.AddScoped<IGenericTrackerService<StepDTO, StepEntry>, GenericTrackerService<StepDTO, StepEntry>>();
+builder.Services.AddScoped<IGenericTrackerService<HydrationDTO, HydrationEntry>, GenericTrackerService<HydrationDTO, HydrationEntry>>();
 
 // Register application services (including auth/email/token)
 builder.Services.AddScoped<IMoodService, MoodService>();
