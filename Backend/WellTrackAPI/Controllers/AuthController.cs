@@ -1,14 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.DTOs.Auth;
+using WellTrackAPI.ExceptionHandling;
 using WellTrackAPI.Models;
 using WellTrackAPI.Services;
-using Microsoft.Extensions.Logging;
-using WellTrackAPI.ExceptionHandling;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace WellTrackAPI.Controllers
 {
@@ -33,7 +32,6 @@ namespace WellTrackAPI.Controllers
         private string ClientIp =>
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-
         [EnableRateLimiting("AuthPolicy")]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterModel model)
@@ -44,8 +42,7 @@ namespace WellTrackAPI.Controllers
                 ClientIp
             );
 
-            var (succeeded, userId, _) =
-                await _auth.RegisterAsync(model, ClientIp);
+            var (succeeded, userId, _) = await _auth.RegisterAsync(model, ClientIp);
 
             return Ok(new
             {
@@ -61,7 +58,6 @@ namespace WellTrackAPI.Controllers
             [FromQuery] string code)
         {
             await _auth.VerifyEmailOtpAsync(userId, code);
-
             return Ok(new { message = "Email verified" });
         }
 
@@ -75,37 +71,30 @@ namespace WellTrackAPI.Controllers
                 ClientIp
             );
 
-            var (access, refresh, _) =
-                await _auth.LoginAsync(model, ClientIp);
+            var (access, refresh, _) = await _auth.LoginAsync(model, ClientIp);
 
             return Ok(new { access, refresh });
         }
 
         [EnableRateLimiting("TokenPolicy")]
         [HttpPost("refresh")]
-        public async Task<IActionResult> Refresh(
-            [FromBody] RefreshTokenDto dto)
+        public async Task<IActionResult> Refresh([FromBody] RefreshTokenDto dto)
         {
-            var (access, _) =
-                await _auth.RefreshTokenAsync(dto.RefreshToken, ClientIp);
-
+            var (access, _) = await _auth.RefreshTokenAsync(dto.RefreshToken, ClientIp);
             return Ok(new { access });
         }
 
         [EnableRateLimiting("TokenPolicy")]
         [HttpPost("revoke")]
-        public async Task<IActionResult> Revoke(
-            [FromBody] RefreshTokenDto dto)
+        public async Task<IActionResult> Revoke([FromBody] RefreshTokenDto dto)
         {
             await _auth.RevokeRefreshTokenAsync(dto.RefreshToken, ClientIp);
-
             return Ok(new { message = "Revoked" });
         }
 
         [EnableRateLimiting("AuthPolicy")]
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword(
-            [FromBody] EmailDto dto)
+        public async Task<IActionResult> ForgotPassword([FromBody] EmailDto dto)
         {
             _logger.LogInformation(
                 "Forgot-password requested for {Email}",
@@ -122,14 +111,12 @@ namespace WellTrackAPI.Controllers
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
         {
             await _auth.ResetPasswordAsync(dto.Email, dto.Code, dto.NewPassword);
-
             return Ok(new { message = "Password reset successful." });
         }
 
         [EnableRateLimiting("AuthPolicy")]
         [HttpPost("verify-reset-otp")]
-        public async Task<IActionResult> VerifyResetOtp(
-            [FromBody] VerifyResetOtpDto dto)
+        public async Task<IActionResult> VerifyResetOtp([FromBody] VerifyResetOtpDto dto)
         {
             var ok = await _auth.VerifyPasswordResetOtpAsync(dto.Email, dto.Code);
 
@@ -141,11 +128,10 @@ namespace WellTrackAPI.Controllers
 
         [EnableRateLimiting("AuthPolicy")]
         [HttpPost("resend-otp")]
-        public async Task<IActionResult> ResendOtp(
-            [FromBody] EmailDto dto)
+        public async Task<IActionResult> ResendOtp([FromBody] EmailDto dto)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email)
-                ?? throw new NotFoundException("User not found"); 
+                ?? throw new NotFoundException("User not found");
 
             await _auth.SendEmailOtpAsync(user.Id, user.Email!);
 
@@ -154,14 +140,12 @@ namespace WellTrackAPI.Controllers
 
         [EnableRateLimiting("AuthPolicy")]
         [HttpPost("resend-reset-otp")]
-        public async Task<IActionResult> ResendResetOtp(
-            [FromBody] EmailDto dto)
+        public async Task<IActionResult> ResendResetOtp([FromBody] EmailDto dto)
         {
             await _auth.SendPasswordResetOtpAsync(dto.Email);
-
             return Ok(new { message = "Password reset OTP resent successfully." });
         }
-        
+
         [Authorize]
         [EnableRateLimiting("UserPolicy")]
         [HttpGet("me")]

@@ -8,6 +8,7 @@ using WellTrackAPI.Data;
 using WellTrackAPI.Mapping;
 using WellTrackAPI.Models;
 using WellTrackAPI.Services;
+using WellTrackAPI.Services.Admin;
 using WellTrackAPI.Settings;
 using WellTrackAPI.ExceptionHandling;
 using Serilog;
@@ -189,11 +190,24 @@ builder.Services.AddScoped<IHabitService, HabitService>();
 builder.Services.AddScoped<IFoodService, FoodService>();
 builder.Services.AddScoped<IMotivationService, MotivationService>();
 
+
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IAdminService, AdminService>();
-builder.Services.AddScoped<IProfileService, ProfileService>();
-builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ITokenService, TokenService>(); 
+builder.Services.AddScoped<IEmailOtpService, EmailOtpService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddScoped<IUserRoleService, UserRoleService>();
+
+
+builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+builder.Services.AddScoped<IAdminReportService, AdminReportService>();
+builder.Services.AddScoped<IAdminTrackerService, AdminTrackerService>();
+builder.Services.AddScoped<IAdminEntryService, AdminEntryService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+
+
+builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IImageService, CloudinaryImageService>();
 
 builder.Services.AddScoped<IStepAnalyticsService, StepAnalyticsService>();
