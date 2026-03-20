@@ -26,8 +26,11 @@ export default function Hydration() {
       setTodayTotal(Math.round((summaryResp.data.todayTotalLiters || 0) * 1000));
       setDailyGoal(summaryResp.data.dailyGoalMl || 3000);
       setNewGoal(summaryResp.data.dailyGoalMl || 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading hydration data:", error);
+      const message =
+        error?.response?.data?.message || "Failed to load hydration data. Showing last known values.";
+      setErrorMessage(message);
     }
   };
 
