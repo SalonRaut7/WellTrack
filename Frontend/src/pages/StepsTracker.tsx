@@ -19,6 +19,7 @@ export default function Steps() {
     try {
       const resp = await api.get("/api/steps");
       setItems(resp.data || []);
+      setApiError("");
     } catch (err) {
       setApiError("Failed to load steps.");
     }
