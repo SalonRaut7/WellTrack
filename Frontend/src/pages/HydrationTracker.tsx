@@ -4,13 +4,34 @@ import api from "../api/axios";
 export default function Hydration() {
   const [ml, setMl] = useState(500);
   const [items, setItems] = useState<any[]>([]);
+  const [dailyGoal, setDailyGoal] = useState(3000);
+  const [todayTotal, setTodayTotal] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editMl, setEditMl] = useState<number>(0);
+  const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
+
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [newGoal, setNewGoal] = useState(3000);
+
+  const remainingMl = Math.max(0, dailyGoal - todayTotal);
 
   const load = async () => {
-    const resp = await api.get("/api/hydration");
-    setItems(resp.data || []);
+    try {
+      const resp = await api.get("/api/hydration");
+      setItems(resp.data || []);
+
+      const summaryResp = await api.get("/api/hydration/daily-summary");
+      setTodayTotal(Math.round((summaryResp.data.todayTotalLiters || 0) * 1000));
+      setDailyGoal(summaryResp.data.dailyGoalMl || 3000);
+      setNewGoal(summaryResp.data.dailyGoalMl || 3000);
+    } catch (error: any) {
+      console.error("Error loading hydration data:", error);
+      const message =
+        error?.response?.data?.message || "Failed to load hydration data. Showing last known values.";
+      setErrorMessage(message);
+    }
   };
 
   useEffect(() => {
@@ -19,29 +40,95 @@ export default function Hydration() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await api.post("/api/hydration", {
-      waterIntakeLiters: ml / 1000,
-    });
-    setMl(500);
-    load();
+    setErrorMessage(null);
+
+    if (ml <= 0) {
+      setErrorMessage("Water intake must be greater than 0 ml.");
+      return;
+    }
+
+    if (todayTotal + ml > dailyGoal) {
+      const canAdd = dailyGoal - todayTotal;
+      setErrorMessage(`Daily limit exceeded. You can log up to ${canAdd} ml more today.`);
+      return;
+    }
+
+    try {
+      await api.post("/api/hydration", {
+        waterIntakeLiters: ml / 1000,
+      });
+      setMl(500);
+      setErrorMessage(null);
+      load();
+    } catch (error: any) {
+      const message = error.response?.data?.message || "Failed to log hydration entry";
+      setErrorMessage(message);
+    }
   };
 
   const startEdit = (item: any) => {
     setEditingId(item.id);
-    setEditMl(item.waterIntakeLiters * 1000); // convert back to ml for editing
+    setEditMl(item.waterIntakeLiters * 1000);
+    setEditErrorMessage(null);
   };
 
   const saveEdit = async (id: number) => {
-    await api.put(`/api/hydration/${id}`, {
-      waterIntakeLiters: editMl / 1000,
-    });
-    setEditingId(null);
-    load();
+    setEditErrorMessage(null);
+
+    if (editMl <= 0) {
+      setEditErrorMessage("Water intake must be greater than 0 ml.");
+      return;
+    }
+
+    const currentEntry = items.find((i) => i.id === id);
+    const currentMl = currentEntry ? Math.round(currentEntry.waterIntakeLiters * 1000) : 0;
+    const todayTotalWithoutCurrent = todayTotal - currentMl;
+
+    if (todayTotalWithoutCurrent + editMl > dailyGoal) {
+      const canAdd = dailyGoal - todayTotalWithoutCurrent;
+      setEditErrorMessage(`Daily limit exceeded. You can log up to ${canAdd} ml more today.`);
+      return;
+    }
+
+    try {
+      await api.put(`/api/hydration/${id}`, {
+        waterIntakeLiters: editMl / 1000,
+      });
+      setEditingId(null);
+      setEditErrorMessage(null);
+      load();
+    } catch (error: any) {
+      const message = error.response?.data?.message || "Failed to update hydration entry";
+      setEditErrorMessage(message);
+    }
   };
 
   const remove = async (id: number) => {
-    await api.delete(`/api/hydration/${id}`);
-    load();
+    try {
+      await api.delete(`/api/hydration/${id}`);
+      load();
+    } catch (error) {
+      console.error("Error deleting hydration entry:", error);
+    }
+  };
+
+  const saveGoal = async () => {
+    if (newGoal < 100 || newGoal > 6000) {
+      alert("Daily goal must be between 100 ml and 6000 ml.");
+      return;
+    }
+
+    try {
+      await api.put("/api/hydration/daily-goal", {
+        dailyGoalMl: newGoal,
+      });
+      setDailyGoal(newGoal);
+      setEditingGoal(false);
+      load();
+    } catch (error) {
+      console.error("Error updating daily goal:", error);
+      alert("Failed to update daily goal");
+    }
   };
 
   const InputBase =
@@ -67,6 +154,65 @@ export default function Hydration() {
               <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Hydration</h2>
               <p className="mt-1 text-sm text-slate-300">Log water intake and keep your streak going.</p>
             </div>
+          </div>
+        </div>
+
+        {/* Daily Summary */}
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-xl">
+            <div className="text-xs font-medium text-slate-300">Today's Total</div>
+            <div className="mt-2 text-2xl font-bold text-white">{todayTotal} ml</div>
+            <div className="mt-1 text-xs text-slate-400">{(todayTotal / 1000).toFixed(2)} L</div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-medium text-slate-300">Daily Goal</div>
+                <div className="mt-2 text-2xl font-bold text-white">{dailyGoal} ml</div>
+              </div>
+              {!editingGoal && (
+                <button
+                  onClick={() => setEditingGoal(true)}
+                  className={[SmallButtonBase, "h-fit border border-sky-400/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15"].join(" ")}
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {editingGoal && (
+              <div className="mt-3 space-y-2">
+                <input
+                  type="number"
+                  value={newGoal}
+                  onChange={(e) => setNewGoal(Number(e.target.value))}
+                  className={InputBase}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveGoal}
+                    className={[SmallButtonBase, "flex-1 bg-gradient-to-r from-emerald-600 to-lime-500 text-white hover:-translate-y-[1px]"].join(" ")}
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingGoal(false);
+                      setNewGoal(dailyGoal);
+                    }}
+                    className={[SmallButtonBase, "flex-1 border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15"].join(" ")}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-xl">
+            <div className="text-xs font-medium text-slate-300">Remaining</div>
+            <div className={`mt-2 text-2xl font-bold ${remainingMl > 0 ? "text-emerald-400" : "text-rose-400"}`}>{remainingMl} ml</div>
+            <div className="mt-1 text-xs text-slate-400">{(remainingMl / 1000).toFixed(2)} L</div>
           </div>
         </div>
 
@@ -130,6 +276,12 @@ export default function Hydration() {
             </button>
           </div>
 
+          {errorMessage && (
+            <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              <span className="font-semibold">Error:</span> {errorMessage}
+            </div>
+          )}
+
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-100">
             <span className="font-semibold text-white">Tip:</span> {ml} ml ={" "}
             <span className="font-semibold text-white">{(ml / 1000).toFixed(2)} L</span>
@@ -182,6 +334,12 @@ export default function Hydration() {
                           className={InputBase + " mt-1"}
                         />
                       </label>
+
+                      {editErrorMessage && (
+                        <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                          <span className="font-semibold">Error:</span> {editErrorMessage}
+                        </div>
+                      )}
 
                       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                         <button
