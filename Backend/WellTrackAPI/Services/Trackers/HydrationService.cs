@@ -82,7 +82,7 @@ namespace WellTrackAPI.Services.Trackers
                 "Updating hydration entry {EntryId} for UserId {UserId}",
                 id, userId);
 
-            var existingEntry = await GetByIdAsync(id, userId);
+            _ = await GetByIdAsync(id, userId);
 
             double waterIntakeLiters = dto.WaterIntakeLiters;
             int waterIntakeMl = (int)Math.Round(waterIntakeLiters * 1000);
