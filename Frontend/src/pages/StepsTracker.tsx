@@ -237,7 +237,7 @@ export default function Steps() {
                 value={count}
                 onChange={(e) => {
                   setCount(e.target.value);
-                  // if (formError) setFormError("");
+                  if (formError) setFormError("");
                 }}
                 className={InputBase + " mt-1"}
               />
