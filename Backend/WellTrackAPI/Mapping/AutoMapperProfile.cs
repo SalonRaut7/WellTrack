@@ -43,7 +43,7 @@ namespace WellTrackAPI.Mapping
             // Hydration DTOs
             CreateMap<UpdateDailyHydrationGoalDTO, ApplicationUser>()
                 .ForMember(dest => dest.DailyWaterGoalMl, opt => opt.MapFrom(src => src.DailyGoalMl))
-                .ForAllMembers(opt => opt.Ignore());
+                .ForAllOtherMembers(opt => opt.Ignore());
             
             // Food
             CreateMap<FoodEntry, FoodEntryDTO>();
