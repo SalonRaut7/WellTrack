@@ -23,5 +23,15 @@ namespace WellTrackAPI.Controllers
         [HttpPost] public async Task<IActionResult> Create(HydrationDTO dto) => Ok(await _service.CreateAsync(dto, UserId));
         [HttpPut("{id}")] public async Task<IActionResult> Update(int id, HydrationDTO dto) => Ok(await _service.UpdateAsync(id, dto, UserId));
         [HttpDelete("{id}")] public async Task<IActionResult> Delete(int id) => Ok(await _service.DeleteAsync(id, UserId));
+
+        [HttpGet("daily-summary")] 
+        public async Task<IActionResult> GetDailySummary() => Ok(await _service.GetDailySummaryAsync(UserId));
+
+        [HttpGet("daily-goal")] 
+        public async Task<IActionResult> GetDailyGoal() => Ok(new { dailyGoalMl = await _service.GetDailyGoalAsync(UserId) });
+
+        [HttpPut("daily-goal")] 
+        public async Task<IActionResult> SetDailyGoal(UpdateDailyHydrationGoalDTO dto) => Ok(await _service.SetDailyGoalAsync(UserId, dto.DailyGoalMl));
     }
 }
+

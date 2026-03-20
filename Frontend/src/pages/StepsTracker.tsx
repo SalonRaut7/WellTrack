@@ -2,56 +2,167 @@ import React, { useEffect, useState } from "react";
 import api from "../api/axios";
 
 export default function Steps() {
-  const [count, setCount] = useState(1000);
+  const MAX_INT = 2147483647;
+
+  const [count, setCount] = useState("1000");
   const [activity, setActivity] = useState("walking");
   const [items, setItems] = useState<any[]>([]);
-
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editCount, setEditCount] = useState<number>(0);
+  const [editCount, setEditCount] = useState<string>("0");
   const [editActivity, setEditActivity] = useState<string>("walking");
 
+  const [formError, setFormError] = useState("");
+  const [editError, setEditError] = useState("");
+  const [apiError, setApiError] = useState("");
+
   const load = async () => {
-    const resp = await api.get("/api/steps");
-    setItems(resp.data || []);
+    try {
+      const resp = await api.get("/api/steps");
+      setItems(resp.data || []);
+    } catch (err) {
+      setApiError("Failed to load steps.");
+    }
   };
 
   useEffect(() => {
     load();
   }, []);
 
+  const isWholeNumber = (value: string) => /^[0-9]+$/.test(value);
+  const isPositiveWholeNumber = (value: string) =>
+    /^[0-9]+$/.test(value) && Number(value) > 0;
+
+  const exceedsLimit = (value: string) => {
+    if (!/^[0-9]+$/.test(value)) return false;
+    return Number(value) > MAX_INT;
+  };
+
+  const getApiErrorMessage = (err: any): string => {
+    const data = err?.response?.data;
+
+    if (!data) return "Something went wrong.";
+
+    if (data.errors) {
+      const allErrors = Object.values(data.errors).flat() as string[];
+      const firstError = allErrors[0];
+
+      if (
+        typeof firstError === "string" &&
+        (firstError.includes("System.Int32") ||
+          firstError.includes("could not be converted"))
+      ) {
+        return "Input value too large.";
+      }
+
+      if (firstError) return firstError;
+    }
+
+    if (typeof data === "string") return data;
+    if (data.message) return data.message;
+    if (data.title) return data.title;
+
+    return "Invalid input.";
+  };
+
+  const validateCreate = () => {
+    if (!count.trim()) return "Steps count is required.";
+    if (!isWholeNumber(count))
+      return "Steps count must be a whole number. Decimals are not allowed.";
+    if (!isPositiveWholeNumber(count))
+      return "Steps count must be greater than 0.";
+    if (exceedsLimit(count)) return "Input value too large.";
+    return "";
+  };
+
+  const validateEdit = () => {
+    if (!editCount.trim()) return "Steps count is required.";
+    if (!isWholeNumber(editCount))
+      return "Steps count must be a whole number. Decimals are not allowed.";
+    if (!isPositiveWholeNumber(editCount))
+      return "Steps count must be greater than 0.";
+    if (exceedsLimit(editCount)) return "Input value too large.";
+    return "";
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await api.post("/api/steps", { stepsCount: count, activityType: activity });
-    setCount(1000);
-    setActivity("walking");
-    load();
+    setFormError("");
+    setApiError("");
+
+    const validationError = validateCreate();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
+    try {
+      await api.post("/api/steps", {
+        stepsCount: Number(count),
+        activityType: activity,
+      });
+
+      setCount("1000");
+      setActivity("walking");
+      await load();
+    } catch (err: any) {
+      setApiError(getApiErrorMessage(err));
+    }
   };
 
   const startEdit = (item: any) => {
     setEditingId(item.id);
-    setEditCount(item.stepsCount);
+    setEditCount(String(item.stepsCount ?? 0));
     setEditActivity(item.activityType || "walking");
+    setEditError("");
+    setApiError("");
   };
 
   const saveEdit = async (id: number) => {
-    await api.put(`/api/steps/${id}`, { stepsCount: editCount, activityType: editActivity });
-    setEditingId(null);
-    load();
+    setEditError("");
+    setApiError("");
+
+    const validationError = validateEdit();
+    if (validationError) {
+      setEditError(validationError);
+      return;
+    }
+
+    try {
+      await api.put(`/api/steps/${id}`, {
+        stepsCount: Number(editCount),
+        activityType: editActivity,
+      });
+
+      setEditingId(null);
+      await load();
+    } catch (err: any) {
+      setApiError(getApiErrorMessage(err));
+    }
   };
 
   const remove = async (id: number) => {
-    await api.delete(`/api/steps/${id}`);
-    load();
+    setApiError("");
+    try {
+      await api.delete(`/api/steps/${id}`);
+      await load();
+    } catch (err: any) {
+      setApiError(getApiErrorMessage(err));
+    }
   };
 
   const InputBase =
     "w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white shadow-sm outline-none placeholder:text-slate-300 focus:border-white/15 focus:ring-4 focus:ring-indigo-300/30";
+
   const ButtonBase =
     "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
+
   const SmallButtonBase =
     "inline-flex items-center justify-center rounded-2xl px-3 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300/30";
 
-  const activityMeta: Record<string, { label: string; chip: string; bar: string; glow: string }> = {
+  const activityMeta: Record<
+    string,
+    { label: string; chip: string; bar: string; glow: string }
+  > = {
     walking: {
       label: "Walking",
       chip: "border-emerald-400/20 bg-emerald-500/10 text-emerald-100",
@@ -93,11 +204,21 @@ export default function Steps() {
           <div className="relative p-6 sm:p-8">
             <div className="absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(16,185,129,0.16),transparent_55%),radial-gradient(800px_circle_at_85%_120%,rgba(56,189,248,0.12),transparent_50%)]" />
             <div className="relative">
-              <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Steps</h2>
-              <p className="mt-1 text-sm text-slate-300">Log your steps and activity type.</p>
+              <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                Steps
+              </h2>
+              <p className="mt-1 text-sm text-slate-300">
+                Log your steps and activity type.
+              </p>
             </div>
           </div>
         </div>
+
+        {apiError && (
+          <div className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            {apiError}
+          </div>
+        )}
 
         <form
           onSubmit={submit}
@@ -105,18 +226,33 @@ export default function Steps() {
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-xs font-medium text-slate-300">Steps count</span>
+              <span className="text-xs font-medium text-slate-300">
+                Steps count
+              </span>
               <input
                 type="number"
+                inputMode="numeric"
+                step="1"
+                min="1"
                 value={count}
-                onChange={(e) => setCount(Number(e.target.value))}
+                onChange={(e) => {
+                  setCount(e.target.value);
+                  // if (formError) setFormError("");
+                }}
                 className={InputBase + " mt-1"}
               />
+              {formError && (
+                <div className="mt-2 text-xs text-rose-300">{formError}</div>
+              )}
             </label>
 
             <label className="block">
               <span className="text-xs font-medium text-slate-300">Activity</span>
-              <select value={activity} onChange={(e) => setActivity(e.target.value)} className={InputBase + " mt-1"}>
+              <select
+                value={activity}
+                onChange={(e) => setActivity(e.target.value)}
+                className={InputBase + " mt-1"}
+              >
                 <option value="walking">Walking</option>
                 <option value="running">Running</option>
                 <option value="cycling">Cycling</option>
@@ -157,8 +293,14 @@ export default function Steps() {
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-100">
-              <span className="font-semibold text-white">Preview:</span> {count.toLocaleString()} steps ·{" "}
-              <span className="font-semibold text-white">{activityMeta[activity]?.label ?? activity}</span>
+              <span className="font-semibold text-white">Preview:</span>{" "}
+              {isWholeNumber(count) && count !== ""
+                ? Number(count).toLocaleString()
+                : count || 0}{" "}
+              steps ·{" "}
+              <span className="font-semibold text-white">
+                {activityMeta[activity]?.label ?? activity}
+              </span>
             </div>
 
             <button
@@ -189,7 +331,9 @@ export default function Steps() {
 
           <div className="space-y-3">
             {items.map((it) => {
-              const meta = activityMeta[(it.activityType || "").toLowerCase()] || activityMeta.walking;
+              const meta =
+                activityMeta[(it.activityType || "").toLowerCase()] ||
+                activityMeta.walking;
 
               return (
                 <div
@@ -202,8 +346,9 @@ export default function Steps() {
                     "hover:-translate-y-[2px] hover:shadow-[0_28px_80px_-54px_rgba(0,0,0,0.95)]",
                   ].join(" ")}
                 >
-                  <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${meta.bar}`} />
-
+                  <div
+                    className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${meta.bar}`}
+                  />
                   <div
                     className={[
                       "pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full blur-3xl",
@@ -217,8 +362,12 @@ export default function Steps() {
                       <div className="space-y-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-semibold text-white">Edit steps entry</div>
-                            <div className="text-xs text-slate-300">Update count and activity type.</div>
+                            <div className="text-sm font-semibold text-white">
+                              Edit steps entry
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Update count and activity type.
+                            </div>
                           </div>
                           <span className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-100">
                             Editing
@@ -227,17 +376,32 @@ export default function Steps() {
 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <label className="block">
-                            <span className="text-xs font-medium text-slate-300">Steps count</span>
+                            <span className="text-xs font-medium text-slate-300">
+                              Steps count
+                            </span>
                             <input
                               type="number"
+                              inputMode="numeric"
+                              step="1"
+                              min="1"
                               value={editCount}
-                              onChange={(e) => setEditCount(Number(e.target.value))}
+                              onChange={(e) => {
+                                setEditCount(e.target.value);
+                                if (editError) setEditError("");
+                              }}
                               className={InputBase + " mt-1"}
                             />
+                            {editError && (
+                              <div className="mt-2 text-xs text-rose-300">
+                                {editError}
+                              </div>
+                            )}
                           </label>
 
                           <label className="block">
-                            <span className="text-xs font-medium text-slate-300">Activity</span>
+                            <span className="text-xs font-medium text-slate-300">
+                              Activity
+                            </span>
                             <select
                               value={editActivity}
                               onChange={(e) => setEditActivity(e.target.value)}
@@ -265,6 +429,7 @@ export default function Steps() {
                           >
                             Save
                           </button>
+
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
@@ -291,8 +456,9 @@ export default function Steps() {
                               {meta.label}
                             </span>
                           </div>
-
-                          <div className="mt-1 text-xs text-slate-300">{new Date(it.date).toLocaleString()}</div>
+                          <div className="mt-1 text-xs text-slate-300">
+                            {new Date(it.date).toLocaleString()}
+                          </div>
                         </div>
 
                         <div className="flex gap-2 sm:items-center">
@@ -307,6 +473,7 @@ export default function Steps() {
                           >
                             Edit
                           </button>
+
                           <button
                             type="button"
                             onClick={() => remove(it.id)}
@@ -328,8 +495,12 @@ export default function Steps() {
 
             {items.length === 0 && (
               <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.06] p-6 text-center backdrop-blur-xl">
-                <div className="text-sm font-semibold text-white">No step logs yet</div>
-                <div className="mt-1 text-xs text-slate-300">Add your first entry above.</div>
+                <div className="text-sm font-semibold text-white">
+                  No step logs yet
+                </div>
+                <div className="mt-1 text-xs text-slate-300">
+                  Add your first entry above.
+                </div>
               </div>
             )}
           </div>
