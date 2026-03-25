@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronDown,
   Bell,
+  Download,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useState, useRef } from "react";
@@ -38,6 +39,8 @@ export default function NavBar() {
 
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement | null>(null);
+
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -68,6 +71,32 @@ export default function NavBar() {
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, []);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      const response = await api.get("/api/export/excel", {
+        responseType: "blob",
+        headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "WellTrack_Export.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setOpen(false);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export Excel file. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const isAdmin = auth.user?.roles?.includes("Admin");
 
@@ -397,6 +426,25 @@ export default function NavBar() {
                         >
                           <User className="h-4 w-4 text-slate-300" />
                           Profile
+                        </button>
+                      )}
+
+                      {!isAdmin && (
+                        <button
+                          onClick={handleExportExcel}
+                          disabled={isExporting}
+                          className={[
+                            "w-full px-4 py-2.5 text-left text-sm font-semibold",
+                            "flex items-center gap-2",
+                            isExporting
+                              ? "text-slate-400 cursor-not-allowed opacity-60"
+                              : "text-emerald-200 hover:text-emerald-100 hover:bg-emerald-500/10 transition-colors",
+                          ].join(" ")}
+                          role="menuitem"
+                          title={isExporting ? "Exporting..." : "Export all tracker data to Excel"}
+                        >
+                          <Download className="h-4 w-4" />
+                          {isExporting ? "Exporting..." : "Export Excel"}
                         </button>
                       )}
 

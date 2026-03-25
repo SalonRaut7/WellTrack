@@ -53,6 +53,15 @@ namespace WellTrackAPI.Services.Food
             return new { entries = entriesDto, totals };
         }
 
+        public async Task<IEnumerable<FoodEntryDTO>> GetAllAsync(string userId)
+        {
+            var entries = await _db.FoodEntries
+                .Where(f => f.UserId == userId)
+                .OrderByDescending(f => f.Date)
+                .ToListAsync();
+
+            return _mapper.Map<List<FoodEntryDTO>>(entries);
+        }
         public async Task<FoodEntryDTO> AddFoodAsync(FoodEntryDTO dto, string userId)
         {
             _logger.LogInformation("Adding food entry for UserId {UserId}", userId);

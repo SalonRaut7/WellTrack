@@ -26,6 +26,7 @@ using WellTrackAPI.DTOs;
 using WellTrackAPI.Application.Services;
 using WellTrackAPI.Infrastructure.Repositories;
 using WellTrackAPI.Infrastructure.Repositories.Interfaces;
+using WellTrackAPI.Services.Interfaces;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -232,6 +233,8 @@ builder.Services.AddScoped<IFoodAnalyticsService, FoodAnalyticsService>();
 
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHostedService<HealthNotificationWorker>();
+
+builder.Services.AddScoped<ITrackerExportService, TrackerExportService>();
 
 builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
 

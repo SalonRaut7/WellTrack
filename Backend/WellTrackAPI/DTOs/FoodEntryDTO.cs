@@ -10,5 +10,6 @@ namespace WellTrackAPI.DTOs
         public double Fat { get; set; }
         public string ServingSize { get; set; } = null!;
         public string MealType { get; set; } = null!;
+        public DateTime Date { get; set; }
     }
 }
