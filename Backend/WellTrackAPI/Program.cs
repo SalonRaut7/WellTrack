@@ -235,7 +235,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHostedService<HealthNotificationWorker>();
 
 builder.Services.AddScoped<ITrackerExportService, TrackerExportService>();
+builder.Services.AddScoped<ITrackerTemplateService, TrackerTemplateService>();
 
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
 
 var app = builder.Build();
