@@ -97,6 +97,28 @@ export default function NavBar() {
       setIsExporting(false);
     }
   };
+  const handleDownloadImportTemplate = async () => {
+    try {
+      const response = await api.get("/api/template", {
+        responseType: "blob",
+        headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "WellTrack_Import_Template.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setOpen(false);
+    } catch (error) {
+      console.error("Template download failed:", error);
+      alert("Failed to download import template. Please try again.");
+    }
+  };
 
   const isAdmin = auth.user?.roles?.includes("Admin");
 
@@ -444,7 +466,22 @@ export default function NavBar() {
                           title={isExporting ? "Exporting..." : "Export all tracker data to Excel"}
                         >
                           <Download className="h-4 w-4" />
-                          {isExporting ? "Exporting..." : "Export Excel"}
+                          {isExporting ? "Exporting..." : "Export Tracker Data to Excel"}
+                        </button>
+                      )}
+                      {!isAdmin && (
+                        <button
+                          onClick={handleDownloadImportTemplate}
+                          className={[
+                            "w-full px-4 py-2.5 text-left text-sm font-semibold",
+                            "flex items-center gap-2",
+                            "text-sky-200 hover:text-sky-100 hover:bg-sky-500/10 transition-colors",
+                          ].join(" ")}
+                          role="menuitem"
+                          title="Download Excel template for imports"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download Template For Import
                         </button>
                       )}
 
