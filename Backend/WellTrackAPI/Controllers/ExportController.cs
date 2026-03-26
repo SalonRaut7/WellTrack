@@ -10,9 +10,9 @@ namespace WellTrackAPI.Controllers
     [Authorize]
     public class ExportController : ControllerBase
     {
-        private readonly ITrackerExportService _exportService;
+        private readonly IExportService _exportService;
 
-        public ExportController(ITrackerExportService exportService)
+        public ExportController(IExportService exportService)
         {
             _exportService = exportService;
         }

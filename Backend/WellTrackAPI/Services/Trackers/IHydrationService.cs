@@ -13,5 +13,6 @@ namespace WellTrackAPI.Services.Trackers
         Task<DailyHydrationSummaryDTO> GetDailySummaryAsync(string userId);
         Task<int> GetDailyGoalAsync(string userId);
         Task<bool> SetDailyGoalAsync(string userId, int goalMl);
+        Task AddRangeAsync(IEnumerable<HydrationDTO> dtos, string userId);
     }
 }

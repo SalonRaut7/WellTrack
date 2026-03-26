@@ -10,5 +10,6 @@ namespace WellTrackAPI.Services.Food
         Task<FoodEntryDTO> UpdateFoodAsync(int id, FoodEntryDTO dto, string userId);
         Task<bool> DeleteFoodAsync(int id, string userId);
         Task<string> SearchFoodAsync(string query);
+        Task AddRangeAsync(IEnumerable<FoodEntryDTO> dtos, string userId);
     }
 }

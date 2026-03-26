@@ -93,5 +93,12 @@ namespace WellTrackAPI.Services.Trackers
             if (wake <= bed) wake = wake.AddDays(1);
             return Math.Round((wake - bed).TotalHours, 2);
         }
+        public async Task AddRangeAsync(IEnumerable<SleepDTO> dtos, string userId)
+        {
+            foreach (var dto in dtos)
+            {
+                await CreateAsync(dto, userId);
+            }
+        }
     }
 }

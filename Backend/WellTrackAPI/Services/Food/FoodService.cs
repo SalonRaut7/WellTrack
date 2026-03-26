@@ -122,5 +122,12 @@ namespace WellTrackAPI.Services.Food
 
             return await response.Content.ReadAsStringAsync();
         }
+        public async Task AddRangeAsync(IEnumerable<FoodEntryDTO> dtos, string userId)
+        {
+            foreach (var dto in dtos)
+            {
+                await AddFoodAsync(dto, userId);
+            }
+        }
     }
 }

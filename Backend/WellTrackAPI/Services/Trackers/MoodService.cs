@@ -55,5 +55,12 @@ namespace WellTrackAPI.Services.Trackers
             _logger.LogInformation("Mood entry deleted. EntryId {EntryId}, UserId {UserId}", id, userId);
             return result;
         }
+        public async Task AddRangeAsync(IEnumerable<MoodDTO> dtos, string userId)
+        {
+            foreach (var dto in dtos)
+            {
+                await CreateAsync(dto, userId);
+            }
+        }
     }
 }

@@ -55,5 +55,13 @@ namespace WellTrackAPI.Services.Trackers
             _logger.LogInformation("Step entry deleted. EntryId {EntryId}, UserId {UserId}", id, userId);
             return result;
         }
+        //AddRangeAsync method
+        public async Task AddRangeAsync(IEnumerable<StepDTO> dtos, string userId)
+        {
+            foreach (var dto in dtos)
+            {
+                await CreateAsync(dto, userId);
+            }
+        }
     }
 }
