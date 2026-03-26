@@ -185,6 +185,7 @@ builder.Services.AddCors(options =>
             .WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
             .AllowAnyMethod()
+            .WithExposedHeaders("Content-Disposition")
             .AllowCredentials();
     });
 });
@@ -234,7 +235,9 @@ builder.Services.AddScoped<IFoodAnalyticsService, FoodAnalyticsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHostedService<HealthNotificationWorker>();
 
-builder.Services.AddScoped<ITrackerExportService, TrackerExportService>();
+builder.Services.AddScoped<IExportService, ExportService>();
+builder.Services.AddScoped<IImportService, ImportService>();
+
 builder.Services.AddScoped<ITrackerTemplateService, TrackerTemplateService>();
 
 builder.Services.AddScoped<INotificationService, NotificationService>();

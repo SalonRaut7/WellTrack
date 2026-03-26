@@ -41,6 +41,7 @@ export default function NavBar() {
   const notifRef = useRef<HTMLDivElement | null>(null);
 
   const [isExporting, setIsExporting] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -59,8 +60,7 @@ export default function NavBar() {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(e.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
 
@@ -68,6 +68,7 @@ export default function NavBar() {
         setNotifOpen(false);
       }
     }
+
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, []);
@@ -75,21 +76,42 @@ export default function NavBar() {
   const handleExportExcel = async () => {
     try {
       setIsExporting(true);
+
       const response = await api.get("/api/export/excel", {
         responseType: "blob",
-        headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "WellTrack_Export.xlsx");
+
+      const contentDisposition = response.headers["content-disposition"];
+      let fileName = "WellTrack_Export.xlsx";
+
+      if (contentDisposition) {
+        const fileNameStartmatch = contentDisposition.match(/filename\*\=UTF-8''([^;]+)/);
+        if (fileNameStartmatch?.[1]) {
+          fileName = decodeURIComponent(fileNameStartmatch[1]);
+        }else{
+          const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (fileNameMatch?.[1]) {
+            fileName = fileNameMatch[1];
+          }
+        }
+      }
+
+      link.setAttribute("download", fileName);
+
       document.body.appendChild(link);
       link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      link.remove();
 
+      window.URL.revokeObjectURL(url);
       setOpen(false);
+
     } catch (error) {
       console.error("Export failed:", error);
       alert("Failed to export Excel file. Please try again.");
@@ -97,26 +119,52 @@ export default function NavBar() {
       setIsExporting(false);
     }
   };
+
   const handleDownloadImportTemplate = async () => {
     try {
+      setIsDownloadingTemplate(true);
+
       const response = await api.get("/api/template", {
         responseType: "blob",
-        headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "WellTrack_Import_Template.xlsx");
+
+      const contentDisposition = response.headers["content-disposition"];
+      let fileName = "TrackerTemplate.xlsx"; 
+
+      if (contentDisposition) {
+        const fileNameStarMatch = contentDisposition.match(/filename\*\=UTF-8''([^;]+)/);
+
+        if (fileNameStarMatch?.[1]) {
+          fileName = decodeURIComponent(fileNameStarMatch[1]);
+        } else {
+          const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (fileNameMatch?.[1]) {
+            fileName = fileNameMatch[1];
+          }
+        }
+      }
+
+      link.setAttribute("download", fileName);
+
       document.body.appendChild(link);
       link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      link.remove();
 
+      window.URL.revokeObjectURL(url);
       setOpen(false);
+
     } catch (error) {
       console.error("Template download failed:", error);
       alert("Failed to download import template. Please try again.");
+    } finally {
+      setIsDownloadingTemplate(false);
     }
   };
 
@@ -402,7 +450,7 @@ export default function NavBar() {
                 {open && (
                   <div
                     className={[
-                      "absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl",
+                      "absolute right-0 mt-2 w-64 overflow-hidden rounded-2xl",
                       "bg-slate-950/70 backdrop-blur-2xl",
                       "border border-white/10",
                       "shadow-[0_28px_80px_-54px_rgba(0,0,0,0.95)]",
@@ -422,7 +470,9 @@ export default function NavBar() {
                       <div className="text-sm font-semibold text-white truncate">
                         {profile?.name || "Account"}
                       </div>
-                      <div className="text-xs text-slate-300 truncate">{auth.user?.email || ""}</div>
+                      <div className="text-xs text-slate-300 truncate">
+                        {auth.user?.email || ""}
+                      </div>
 
                       {isAdmin && (
                         <div className="mt-2 inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-200">
@@ -469,19 +519,48 @@ export default function NavBar() {
                           {isExporting ? "Exporting..." : "Export Tracker Data to Excel"}
                         </button>
                       )}
+
                       {!isAdmin && (
                         <button
                           onClick={handleDownloadImportTemplate}
+                          disabled={isDownloadingTemplate}
                           className={[
                             "w-full px-4 py-2.5 text-left text-sm font-semibold",
                             "flex items-center gap-2",
-                            "text-sky-200 hover:text-sky-100 hover:bg-sky-500/10 transition-colors",
+                            isDownloadingTemplate
+                              ? "text-slate-400 cursor-not-allowed opacity-60"
+                              : "text-sky-200 hover:text-sky-100 hover:bg-sky-500/10 transition-colors",
                           ].join(" ")}
                           role="menuitem"
-                          title="Download Excel template for imports"
+                          title={
+                            isDownloadingTemplate
+                              ? "Downloading..."
+                              : "Download Excel template for imports"
+                          }
                         >
                           <Download className="h-4 w-4" />
-                          Download Template For Import
+                          {isDownloadingTemplate
+                            ? "Downloading Template..."
+                            : "Download Template For Import"}
+                        </button>
+                      )}
+
+                      {!isAdmin && (
+                        <button
+                          onClick={() => {
+                            setOpen(false);
+                            navigate("/import");
+                          }}
+                          className={[
+                            "w-full px-4 py-2.5 text-left text-sm font-semibold",
+                            "flex items-center gap-2",
+                            "text-violet-200 hover:text-violet-100 hover:bg-violet-500/10 transition-colors",
+                          ].join(" ")}
+                          role="menuitem"
+                          title="Import tracker data from Excel"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Import Tracker Data
                         </button>
                       )}
 
@@ -535,6 +614,7 @@ export default function NavBar() {
             {items.slice(0, 5).map((it) => {
               const Icon = it.icon;
               const active = isActive(it.to);
+
               return (
                 <Link
                   key={it.to}

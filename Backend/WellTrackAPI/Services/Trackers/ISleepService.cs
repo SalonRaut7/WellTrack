@@ -10,5 +10,6 @@ namespace WellTrackAPI.Services.Trackers
         Task<SleepEntry> CreateAsync(SleepDTO dto, string userId);
         Task<bool> UpdateAsync(int id, SleepDTO dto, string userId);
         Task<bool> DeleteAsync(int id, string userId);
+        Task AddRangeAsync(IEnumerable<SleepDTO> dtos, string userId);
     }
 }

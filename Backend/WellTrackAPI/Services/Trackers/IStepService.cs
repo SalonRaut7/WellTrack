@@ -10,5 +10,6 @@ namespace WellTrackAPI.Services.Trackers
         Task<StepEntry> CreateAsync(StepDTO dto, string userId);
         Task<bool> UpdateAsync(int id, StepDTO dto, string userId);
         Task<bool> DeleteAsync(int id, string userId);
+        Task AddRangeAsync(IEnumerable<StepDTO> dtos, string userId);
     }
 }

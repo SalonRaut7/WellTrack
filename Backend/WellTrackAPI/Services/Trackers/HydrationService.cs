@@ -195,5 +195,12 @@ namespace WellTrackAPI.Services.Trackers
 
             return true;
         }
+        public async Task AddRangeAsync(IEnumerable<HydrationDTO> dtos, string userId)
+        {
+            foreach (var dto in dtos)
+            {
+                await CreateAsync(dto, userId);
+            }
+        }
     }
 }

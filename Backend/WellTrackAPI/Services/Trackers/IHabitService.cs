@@ -10,5 +10,6 @@ namespace WellTrackAPI.Services.Trackers
         Task<HabitEntry> CreateAsync(HabitDTO dto, string userId);
         Task<bool> UpdateAsync(int id, HabitDTO dto, string userId);
         Task<bool> DeleteAsync(int id, string userId);
+        Task AddRangeAsync(IEnumerable<HabitDTO> dtos, string userId);
     }
 }

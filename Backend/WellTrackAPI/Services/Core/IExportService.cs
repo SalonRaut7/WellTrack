@@ -1,6 +1,6 @@
 namespace WellTrackAPI.Services.Interfaces
 {
-    public interface ITrackerExportService
+    public interface IExportService
     {
         Task<byte[]> ExportAllTrackersToExcelAsync(
             string userId,

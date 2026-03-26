@@ -24,6 +24,8 @@ import ResetPassword from "./pages/ResetPassword";
 import ProfilePage from "./pages/Profile";
 import FoodTracker from "./pages/FoodTracker";
 
+import ImportPage from "./pages/ImportPage";
+
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
@@ -80,7 +82,7 @@ export default function App() {
           <Route path="/habits" element={<PrivateRoute><UserRoute><Habits /></UserRoute></PrivateRoute>} />
           <Route path="/analytics" element={<PrivateRoute><UserRoute><Analytics /></UserRoute></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-
+          <Route path="/import" element={<PrivateRoute><UserRoute><ImportPage /></UserRoute></PrivateRoute>} />
           <Route path="/food" element={<PrivateRoute><UserRoute><FoodTracker /></UserRoute></PrivateRoute>} />
         </Routes>
       </div>

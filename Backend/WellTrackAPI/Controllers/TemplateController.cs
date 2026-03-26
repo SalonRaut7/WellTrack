@@ -23,7 +23,7 @@ namespace WellTrackAPI.Controllers
             var file = _templateService.GenerateTemplate();
             return File(file,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "TrackerTemplate.xlsx");
+                $"WellTrack_Import_Template_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
         }
     }
 }

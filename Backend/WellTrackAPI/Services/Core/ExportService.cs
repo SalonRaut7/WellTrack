@@ -5,7 +5,7 @@ using WellTrackAPI.Services.Food;
 
 namespace WellTrackAPI.Services
 {
-    public class TrackerExportService : ITrackerExportService
+    public class ExportService : IExportService
     {
         private readonly IStepService _stepService;
         private readonly ISleepService _sleepService;
@@ -14,7 +14,7 @@ namespace WellTrackAPI.Services
         private readonly IHabitService _habitService;
         private readonly IFoodService _foodService;
 
-        public TrackerExportService(
+        public ExportService(
             IStepService stepService,
             ISleepService sleepService,
             IMoodService moodService,
@@ -37,7 +37,6 @@ namespace WellTrackAPI.Services
         {
             using var workbook = new XLWorkbook();
 
-            // Export each tracker using the dynamic helper
             var stepsData = await _stepService.GetAllAsync(userId);
             AddSheet(workbook, "Steps", stepsData, new[] { "Date", "ActivityType", "StepsCount" });
 
@@ -64,38 +63,45 @@ namespace WellTrackAPI.Services
         private void AddSheet<T>(XLWorkbook workbook, string sheetName, IEnumerable<T> data, string[] headers)
         {
             var sheet = workbook.AddWorksheet(sheetName);
-            //headers title (first row)
+
             for (int i = 0; i < headers.Length; i++)
             {
                 sheet.Cell(1, i + 1).Value = headers[i];
             }
-            //now starting from this row, we have to write the actual data, we can use reflection to get the property values based on the headers
-            //reflection = we will look at the properties of the data type T and match them with the headers to get the values dynamically, this way we can reuse this method for any tracker type without hardcoding property names
+
             int row = 2;
             foreach (var item in data)
             {
                 for (int col = 0; col < headers.Length; col++)
                 {
-                    var prop = item.GetType().GetProperty(headers[col]);
-                    if (prop != null)
-                    {
-                        var value = prop.GetValue(item);
+                    var header = headers[col];
+                    var prop = item!.GetType().GetProperty(header); //reflection: get property by header name
+                    if (prop == null) continue;
 
-                        sheet.Cell(row, col + 1).Value = value switch
-                        {
-                            null => "",
-                            DateTime dt => dt.ToLocalTime(),
-                            int i => i,
-                            double d => d,
-                            bool b => b,
-                            _ => value.ToString()
-                        };
-                    }
+                    var value = prop.GetValue(item);
+                    sheet.Cell(row, col + 1).Value = FormatCellValue(value);
                 }
+
                 row++;
             }
 
             FormatSheet(sheet);
+        }
+
+        private string FormatCellValue(object? value)
+        {
+            if (value == null) return "";
+
+            if (value is DateTime dt)
+            {
+                var local = dt.ToLocalTime();
+                return local.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+
+            if (value is bool b) return b ? "true" : "false";
+            if (value is int i) return i.ToString();
+            if (value is double d) return d.ToString();
+            return value.ToString() ?? "";
         }
 
         private void FormatSheet(IXLWorksheet sheet)
