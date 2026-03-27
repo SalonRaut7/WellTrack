@@ -1,7 +1,9 @@
 using ClosedXML.Excel;
-using WellTrackAPI.Services.Interfaces;
+using WellTrackAPI.Services.Core;
 
-public class TrackerTemplateService : ITrackerTemplateService
+namespace WellTrackAPI.Services.Core
+{
+    public class TrackerTemplateService : ITrackerTemplateService
 {
     public byte[] GenerateTemplate()
     {
@@ -175,4 +177,5 @@ public class TrackerTemplateService : ITrackerTemplateService
             sheet.RangeUsed()!.SetAutoFilter();
         }
     }
+}
 }

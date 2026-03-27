@@ -1,6 +1,10 @@
 using WellTrackAPI.DTOs;
-public interface IImportService
+
+namespace WellTrackAPI.Services.Core
 {
-    Task<ImportPreviewDto> ParseAndValidateAsync(IFormFile file, string userId, string rangeMode, DateTime? from = null, DateTime? to = null);
-    Task SaveAsync(ImportPreviewDto dto, string userId, bool overwriteConflicts);
+    public interface IImportService
+    {
+        Task<ImportPreviewDto> ParseAndValidateAsync(IFormFile file, string userId, string rangeMode, DateTime? from = null, DateTime? to = null);
+        Task SaveAsync(ImportPreviewDto dto, string userId, bool overwriteConflicts);
+    } 
 }

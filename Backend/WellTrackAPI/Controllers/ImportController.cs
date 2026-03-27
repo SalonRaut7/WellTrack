@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using WellTrackAPI.Services.Interfaces;
+using WellTrackAPI.Services.Core;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using WellTrackAPI.DTOs;
+using Microsoft.Extensions.Options;
 
 namespace WellTrackAPI.Controllers
 {
@@ -12,10 +13,11 @@ namespace WellTrackAPI.Controllers
     public class ImportController : ControllerBase
     {
         private readonly IImportService _importService;
-
-        public ImportController(IImportService importService)
+        private readonly long MaxFileSizeBytes;
+        public ImportController(IImportService importService, IOptions<ImportSettings> importSettings)
         {
             _importService = importService;
+            MaxFileSizeBytes = importSettings.Value.MaxFileSizeBytes;
         }
 
         [HttpPost("preview")]
@@ -27,6 +29,12 @@ namespace WellTrackAPI.Controllers
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
+
+            if (file.Length > MaxFileSizeBytes)
+                return BadRequest($"File is too large. Maximum allowed size is {MaxFileSizeBytes / (1024 * 1024)} MB.");
+
+            if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Only .xlsx Excel files are supported.");
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
