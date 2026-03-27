@@ -1,4 +1,8 @@
-public interface ITrackerTemplateService
+namespace WellTrackAPI.Services.Core
 {
-    byte[] GenerateTemplate();
+    public interface ITrackerTemplateService
+    {
+        byte[] GenerateTemplate();
+    }
+
 }

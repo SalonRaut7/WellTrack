@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.DTOs;
 using WellTrackAPI.Models;
-using WellTrackAPI.Services.Interfaces;
+using WellTrackAPI.Services.Core;
 
 namespace WellTrackAPI.Services.Core
 {
@@ -260,7 +260,10 @@ namespace WellTrackAPI.Services.Core
 
             foreach (var row in rows)
             {
-                var rowDate = row.Date == default ? DateTime.UtcNow : row.Date;
+                if (row.Date == default)
+                    throw new InvalidOperationException("Cannot import Food row with missing or default Date.");
+
+                var rowDate = row.Date;
                 var key = FormatUtc(rowDate);
 
                 if (existingByTimestamp.TryGetValue(key, out var entity))
@@ -374,27 +377,27 @@ namespace WellTrackAPI.Services.Core
             var now = DateTime.UtcNow;
 
             preview.Steps = preview.Steps
-                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
+                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
 
             preview.Sleep = preview.Sleep
-                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
+                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
 
             preview.Mood = preview.Mood
-                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
+                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
 
             preview.Hydration = preview.Hydration
-                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
+                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
 
             preview.Habit = preview.Habit
-                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
+                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
 
             preview.Food = preview.Food
-                .Where(x => NormalizeToUtc(x.Date) <= now)
+                .Where(x => x.Date != default && NormalizeToUtc(x.Date) <= now)
                 .ToList();
         }
 
@@ -439,7 +442,7 @@ namespace WellTrackAPI.Services.Core
                     .ToList();
 
                 preview.Food = preview.Food
-                    .Where(x => NormalizeToUtc(x.Date).Date == todayUtc)
+                    .Where(x => x.Date != default && NormalizeToUtc(x.Date).Date == todayUtc)
                     .ToList();
             }
             else if (string.Equals(rangeMode, "range", StringComparison.OrdinalIgnoreCase))
@@ -468,7 +471,7 @@ namespace WellTrackAPI.Services.Core
                     .ToList();
 
                 preview.Food = preview.Food
-                    .Where(x => IsWithinRange(NormalizeToUtc(x.Date), normalizedFrom, normalizedTo))
+                    .Where(x => x.Date != default && IsWithinRange(NormalizeToUtc(x.Date), normalizedFrom, normalizedTo))
                     .ToList();
             }
 
@@ -553,7 +556,7 @@ namespace WellTrackAPI.Services.Core
                 var quality = NormalizeOption(ReadTextCell(sheet.Cell(row, 5), errors, row, "Sleep.Quality"));
 
                 if (hours <= 0 || hours > 24)
-                    errors.Add($"Row {row}: Sleep.Hours '{hours}' out of range (0-24)");
+                    errors.Add($"Row {row}: Sleep.Hours '{hours}' must be greater than 0 and at most 24.");
 
                 if (!new[] { "Good", "Average", "Poor" }.Contains(quality))
                     errors.Add($"Row {row}: Invalid Quality '{quality}'");
@@ -766,7 +769,6 @@ namespace WellTrackAPI.Services.Core
                 }
                 catch
                 {
-                    // Fall through to string parse.
                 }
             }
 

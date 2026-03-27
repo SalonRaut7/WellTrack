@@ -26,7 +26,6 @@ using WellTrackAPI.DTOs;
 using WellTrackAPI.Application.Services;
 using WellTrackAPI.Infrastructure.Repositories;
 using WellTrackAPI.Infrastructure.Repositories.Interfaces;
-using WellTrackAPI.Services.Interfaces;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,6 +38,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 // USDA API settings
 builder.Services.Configure<UsdaSettings>(builder.Configuration.GetSection("USDA"));
+// Import settings
+builder.Services.Configure<ImportSettings>(builder.Configuration.GetSection("ImportSettings"));
 
 // Register HttpClient for calling external APIs like USDA(in this case)
 builder.Services.AddHttpClient();

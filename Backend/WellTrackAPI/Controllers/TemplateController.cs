@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using WellTrackAPI.Services.Interfaces;
+using WellTrackAPI.Services.Core;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 

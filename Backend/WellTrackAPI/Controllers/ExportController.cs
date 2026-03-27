@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using WellTrackAPI.Services.Interfaces;
+using WellTrackAPI.Services.Core;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 
@@ -20,38 +20,25 @@ namespace WellTrackAPI.Controllers
         [HttpGet("excel")]
         public async Task<IActionResult> ExportExcel([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
-            try
-            {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized("User ID not found in token");
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found in token");
 
-                if (to.HasValue)
-                {
-                    to = to.Value.Date.AddDays(1).AddTicks(-1);
-                }
+            if (from.HasValue && to.HasValue && from.Value > to.Value)
+                return BadRequest("'from' cannot be later than 'to'.");
 
-                var fileBytes = await _exportService.ExportAllTrackersToExcelAsync(userId, from, to);
+            var fileBytes = await _exportService.ExportAllTrackersToExcelAsync(userId, from, to);
 
-                var fileName =
-                    from.HasValue || to.HasValue
-                        ? $"WellTrack_Export_{DateTime.Now:yyyyMMdd_HHmmss}_Filtered.xlsx"
-                        : $"WellTrack_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var fileName =
+                from.HasValue || to.HasValue
+                    ? $"WellTrack_Export_{DateTime.Now:yyyyMMdd_HHmmss}_Filtered.xlsx"
+                    : $"WellTrack_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
 
-                return File(
-                    fileBytes,
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    fileName
-                );
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    message = "Error exporting to Excel",
-                    error = ex.Message
-                });
-            }
+            return File(
+                fileBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName
+            );
         }
     }
 }

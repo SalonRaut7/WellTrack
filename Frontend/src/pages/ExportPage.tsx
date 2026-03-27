@@ -8,12 +8,28 @@ export default function ExportPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
+    if (from && to) {
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+
+      if (fromDate.getTime() > toDate.getTime()) {
+        alert("From date cannot be later than To date.");
+        return;
+      }
+    }
+
     try {
       setIsExporting(true);
 
       const params: Record<string, string> = {};
-      if (from) params.from = from;
-      if (to) params.to = to;
+
+      if (from) {
+        params.from = new Date(`${from}T00:00:00`).toISOString();
+      }
+
+      if (to) {
+        params.to = new Date(`${to}T23:59:59`).toISOString();
+      }
 
       const response = await api.get("/api/export/excel", {
         params,

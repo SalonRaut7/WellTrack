@@ -1,4 +1,4 @@
-namespace WellTrackAPI.Services.Interfaces
+namespace WellTrackAPI.Services.Core
 {
     public interface IExportService
     {
