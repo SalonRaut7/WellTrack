@@ -11,6 +11,7 @@ type SleepDTO = {
   date?: string | null;
   bedTime?: string | null;
   wakeUpTime?: string | null;
+  hours: number;
   quality: string;
 };
 
@@ -42,6 +43,16 @@ type FoodEntryDTO = {
   mealType: string;
 };
 
+type ImportOverwriteConflictsDto = {
+  steps: StepDTO[];
+  sleep: SleepDTO[];
+  mood: MoodDTO[];
+  hydration: HydrationDTO[];
+  habit: HabitDTO[];
+  food: FoodEntryDTO[];
+  hasConflicts: boolean;
+};
+
 type ImportPreviewDto = {
   steps: StepDTO[];
   sleep: SleepDTO[];
@@ -51,7 +62,10 @@ type ImportPreviewDto = {
   food: FoodEntryDTO[];
   errors: string[];
   warnings: string[];
+  overwriteConflicts: ImportOverwriteConflictsDto;
 };
+
+type RangeMode = "all" | "today" | "range";
 
 export default function ImportPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -62,16 +76,19 @@ export default function ImportPage() {
   const [confirmingImport, setConfirmingImport] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const [rangeMode, setRangeMode] = useState<RangeMode>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [overwriteConflicts, setOverwriteConflicts] = useState(false);
+
   const hasPreviewData =
     !!preview &&
-    (
-      preview.steps.length > 0 ||
+    (preview.steps.length > 0 ||
       preview.sleep.length > 0 ||
       preview.mood.length > 0 ||
       preview.hydration.length > 0 ||
       preview.habit.length > 0 ||
-      preview.food.length > 0
-    );
+      preview.food.length > 0);
 
   const hasErrors = !!preview && preview.errors.length > 0;
   const canConfirm = hasPreviewData && !hasErrors;
@@ -102,6 +119,20 @@ export default function ImportPage() {
       return;
     }
 
+    if (rangeMode === "range" && !fromDate && !toDate) {
+      alert("Please provide at least a From date or a To date for range import.");
+      return;
+    }
+
+    if (rangeMode === "range" && fromDate && toDate) {
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
+      if (from.getTime() > to.getTime()) {
+        alert("From date cannot be later than To date.");
+        return;
+      }
+    }
+
     try {
       setLoadingPreview(true);
       setMessage(null);
@@ -110,7 +141,21 @@ export default function ImportPage() {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
+      const params: Record<string, string> = {
+        rangeMode,
+      };
+
+      if (rangeMode === "range") {
+        if (fromDate) {
+          params.from = new Date(`${fromDate}T00:00:00`).toISOString();
+        }
+        if (toDate) {
+          params.to = new Date(`${toDate}T23:59:59`).toISOString();
+        }
+      }
+
       const response = await api.post("/api/import/preview", formData, {
+        params,
         headers: {
           Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
           "Content-Type": "multipart/form-data",
@@ -141,15 +186,26 @@ export default function ImportPage() {
       setConfirmingImport(true);
       setMessage(null);
 
-      await api.post("/api/import/confirm", preview, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      await api.post(
+        "/api/import/confirm",
+        {
+          preview,
+          overwriteConflicts,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          },
+        }
+      );
 
       setMessage("Import completed successfully.");
       setSelectedFile(null);
       setPreview(null);
+      setOverwriteConflicts(false);
+      setRangeMode("all");
+      setFromDate("");
+      setToDate("");
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -162,13 +218,25 @@ export default function ImportPage() {
     }
   };
 
-  const totalRowsReady =
+  const totalRowsInPreview =
     (preview?.steps.length || 0) +
     (preview?.sleep.length || 0) +
     (preview?.mood.length || 0) +
     (preview?.hydration.length || 0) +
     (preview?.habit.length || 0) +
     (preview?.food.length || 0);
+
+  const totalConflictRows =
+    (preview?.overwriteConflicts.steps.length || 0) +
+    (preview?.overwriteConflicts.sleep.length || 0) +
+    (preview?.overwriteConflicts.mood.length || 0) +
+    (preview?.overwriteConflicts.hydration.length || 0) +
+    (preview?.overwriteConflicts.habit.length || 0) +
+    (preview?.overwriteConflicts.food.length || 0);
+
+  const estimatedRowsToImport = overwriteConflicts
+    ? totalRowsInPreview
+    : Math.max(0, totalRowsInPreview - totalConflictRows);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white pt-24 px-4">
@@ -178,7 +246,8 @@ export default function ImportPage() {
             Import Tracker Data
           </h1>
           <p className="mt-2 text-slate-300 text-sm md:text-base">
-            Upload an Excel file (.xlsx), review the rows ready to import, then confirm to save them.
+            Upload an Excel file (.xlsx), choose all rows, only today&apos;s rows, or a custom date range,
+            review validation issues and overwrite conflicts, then confirm import.
           </p>
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-slate-900/40 p-4">
@@ -198,6 +267,98 @@ export default function ImportPage() {
                 Selected file: <span className="font-semibold text-white">{selectedFile.name}</span>
               </div>
             )}
+
+            <div className="mt-6">
+              <div className="text-sm font-semibold text-slate-200 mb-3">Import data scope</div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRangeMode("all")}
+                  className={[
+                    "rounded-2xl px-4 py-2 text-sm font-semibold transition-all",
+                    rangeMode === "all"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white/10 text-slate-300 hover:bg-white/15",
+                  ].join(" ")}
+                >
+                  Import all data in file
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRangeMode("today")}
+                  className={[
+                    "rounded-2xl px-4 py-2 text-sm font-semibold transition-all",
+                    rangeMode === "today"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white/10 text-slate-300 hover:bg-white/15",
+                  ].join(" ")}
+                >
+                  Import only today&apos;s data
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRangeMode("range")}
+                  className={[
+                    "rounded-2xl px-4 py-2 text-sm font-semibold transition-all",
+                    rangeMode === "range"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white/10 text-slate-300 hover:bg-white/15",
+                  ].join(" ")}
+                >
+                  Import custom date range
+                </button>
+              </div>
+
+              {rangeMode === "range" && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-200 mb-2">
+                      From date
+                    </label>
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-200 mb-2">
+                      To date
+                    </label>
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={overwriteConflicts}
+                  onChange={(e) => setOverwriteConflicts(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/10 text-amber-500"
+                />
+                <div>
+                  <div className="text-sm font-semibold text-amber-100">
+                    Overwrite existing entries for conflict rows
+                  </div>
+                  <div className="text-xs text-amber-200/80 mt-1">
+                    If enabled, rows that match existing database timestamps will update existing rows.
+                    If disabled, those conflict rows are skipped.
+                  </div>
+                </div>
+              </label>
+            </div>
 
             <div className="mt-4 flex flex-wrap gap-3">
               <button
@@ -224,19 +385,31 @@ export default function ImportPage() {
           {preview && (
             <div className="mt-8 space-y-6">
               <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-                <h2 className="text-lg font-bold text-white">Rows Ready to Import</h2>
+                <h2 className="text-lg font-bold text-white">Import Summary</h2>
                 <p className="mt-2 text-sm text-slate-300">
-                  These counts exclude invalid rows and rows already detected as duplicates.
+                  Preview contains valid parsed rows after applying the selected import scope.
+                  Conflict rows are displayed below and will be overwritten or skipped based on your selection.
                 </p>
 
-                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-sm">
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
                   <div className="rounded-xl bg-white/5 p-3">Steps: {preview.steps.length}</div>
                   <div className="rounded-xl bg-white/5 p-3">Sleep: {preview.sleep.length}</div>
                   <div className="rounded-xl bg-white/5 p-3">Mood: {preview.mood.length}</div>
                   <div className="rounded-xl bg-white/5 p-3">Hydration: {preview.hydration.length}</div>
                   <div className="rounded-xl bg-white/5 p-3">Habit: {preview.habit.length}</div>
                   <div className="rounded-xl bg-white/5 p-3">Food: {preview.food.length}</div>
-                  <div className="rounded-xl bg-indigo-500/20 p-3 font-bold">Total: {totalRowsReady}</div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div className="rounded-xl bg-indigo-500/20 p-3 font-bold">
+                    Total rows in preview: {totalRowsInPreview}
+                  </div>
+                  <div className="rounded-xl bg-amber-500/20 p-3 font-bold">
+                    Overwrite conflicts: {totalConflictRows}
+                  </div>
+                  <div className="rounded-xl bg-emerald-500/20 p-3 font-bold">
+                    Estimated rows applied: {estimatedRowsToImport}
+                  </div>
                 </div>
               </div>
 
@@ -266,6 +439,101 @@ export default function ImportPage() {
                 )}
               </div>
 
+              {totalConflictRows > 0 && (
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  {overwriteConflicts
+                    ? "Overwrite is enabled. Confirm import to update existing database rows for these conflicts."
+                    : "Overwrite is disabled. Conflict rows shown below will be skipped on confirm."}
+                </div>
+              )}
+
+              {preview.overwriteConflicts.steps.length > 0 && (
+                <SectionTable
+                  title="Overwrite Conflicts: Steps"
+                  headers={["Date", "Activity", "Steps Count"]}
+                  rows={preview.overwriteConflicts.steps.map((x) => [
+                    formatDateTime(x.date),
+                    x.activityType,
+                    x.stepsCount.toString(),
+                  ])}
+                />
+              )}
+
+              {preview.overwriteConflicts.sleep.length > 0 && (
+                <SectionTable
+                  title="Overwrite Conflicts: Sleep"
+                  headers={["Date", "Bed Time", "Wake Up Time", "Hours", "Quality"]}
+                  rows={preview.overwriteConflicts.sleep.map((x) => [
+                    formatDateTime(x.date),
+                    formatDateTime(x.bedTime),
+                    formatDateTime(x.wakeUpTime),
+                    x.hours.toString(),
+                    x.quality,
+                  ])}
+                />
+              )}
+
+              {preview.overwriteConflicts.mood.length > 0 && (
+                <SectionTable
+                  title="Overwrite Conflicts: Mood"
+                  headers={["Date", "Mood", "Notes"]}
+                  rows={preview.overwriteConflicts.mood.map((x) => [
+                    formatDateTime(x.date),
+                    x.mood,
+                    x.notes || "-",
+                  ])}
+                />
+              )}
+
+              {preview.overwriteConflicts.hydration.length > 0 && (
+                <SectionTable
+                  title="Overwrite Conflicts: Hydration"
+                  headers={["Date", "Water Intake (L)"]}
+                  rows={preview.overwriteConflicts.hydration.map((x) => [
+                    formatDateTime(x.date),
+                    x.waterIntakeLiters.toString(),
+                  ])}
+                />
+              )}
+
+              {preview.overwriteConflicts.habit.length > 0 && (
+                <SectionTable
+                  title="Overwrite Conflicts: Habit"
+                  headers={["Date", "Name", "Completed"]}
+                  rows={preview.overwriteConflicts.habit.map((x) => [
+                    formatDateTime(x.date),
+                    x.name,
+                    x.completed ? "Yes" : "No",
+                  ])}
+                />
+              )}
+
+              {preview.overwriteConflicts.food.length > 0 && (
+                <SectionTable
+                  title="Overwrite Conflicts: Food"
+                  headers={[
+                    "Date",
+                    "Food",
+                    "Calories",
+                    "Protein",
+                    "Carbs",
+                    "Fat",
+                    "Serving",
+                    "Meal",
+                  ]}
+                  rows={preview.overwriteConflicts.food.map((x) => [
+                    formatDateTime(x.date),
+                    x.foodName,
+                    x.calories.toString(),
+                    x.protein.toString(),
+                    x.carbs.toString(),
+                    x.fat.toString(),
+                    x.servingSize,
+                    x.mealType,
+                  ])}
+                />
+              )}
+
               {preview.steps.length > 0 && (
                 <SectionTable
                   title="Steps"
@@ -281,11 +549,12 @@ export default function ImportPage() {
               {preview.sleep.length > 0 && (
                 <SectionTable
                   title="Sleep"
-                  headers={["Date", "Bed Time", "Wake Up Time", "Quality"]}
+                  headers={["Date", "Bed Time", "Wake Up Time", "Hours", "Quality"]}
                   rows={preview.sleep.map((x) => [
                     formatDateTime(x.date),
                     formatDateTime(x.bedTime),
                     formatDateTime(x.wakeUpTime),
+                    x.hours.toString(),
                     x.quality,
                   ])}
                 />
@@ -354,7 +623,11 @@ export default function ImportPage() {
                       : "bg-emerald-600 text-white hover:bg-emerald-500",
                   ].join(" ")}
                 >
-                  {confirmingImport ? "Importing..." : "Confirm Import"}
+                  {confirmingImport
+                    ? "Importing..."
+                    : overwriteConflicts
+                      ? "Confirm Import and Overwrite Conflicts"
+                      : "Confirm Import"}
                 </button>
               </div>
 

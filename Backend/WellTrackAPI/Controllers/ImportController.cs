@@ -19,7 +19,11 @@ namespace WellTrackAPI.Controllers
         }
 
         [HttpPost("preview")]
-        public async Task<IActionResult> Preview(IFormFile file)
+        public async Task<IActionResult> Preview(
+            IFormFile file,
+            [FromQuery] string rangeMode = "all",
+            [FromQuery] DateTime? from = null,
+            [FromQuery] DateTime? to = null)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
@@ -28,22 +32,38 @@ namespace WellTrackAPI.Controllers
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized("User ID not found in token");
 
-            var preview = await _importService.ParseAndValidateAsync(file, userId);
+            if (!string.Equals(rangeMode, "all", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(rangeMode, "today", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(rangeMode, "range", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest("rangeMode must be 'all', 'today', or 'range'.");
+            }
+
+            if (string.Equals(rangeMode, "range", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!from.HasValue && !to.HasValue)
+                    return BadRequest("For rangeMode='range', provide at least one of 'from' or 'to'.");
+
+                if (from.HasValue && to.HasValue && from.Value > to.Value)
+                    return BadRequest("'from' cannot be later than 'to'.");
+            }
+
+            var preview = await _importService.ParseAndValidateAsync(file, userId, rangeMode, from, to);
             return Ok(preview);
         }
+
         [HttpPost("confirm")]
-        public async Task<IActionResult> ConfirmImport([FromBody] ImportPreviewDto dto)
+        public async Task<IActionResult> ConfirmImport([FromBody] ImportConfirmRequestDto request)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized("User ID not found in token");
 
-            if (dto == null)
+            if (request?.Preview == null)
                 return BadRequest("Invalid import data.");
 
-            await _importService.SaveAsync(dto, userId);
+            await _importService.SaveAsync(request.Preview, userId, request.OverwriteConflicts);
             return Ok(new { Message = "Imported successfully" });
         }
     }
-    
 }
