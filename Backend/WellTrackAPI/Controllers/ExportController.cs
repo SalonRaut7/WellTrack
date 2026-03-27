@@ -18,7 +18,7 @@ namespace WellTrackAPI.Controllers
         }
 
         [HttpGet("excel")]
-        public async Task<IActionResult> ExportExcel()
+        public async Task<IActionResult> ExportExcel([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
             try
             {
@@ -26,17 +26,31 @@ namespace WellTrackAPI.Controllers
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized("User ID not found in token");
 
-                var fileBytes = await _exportService.ExportAllTrackersToExcelAsync(userId);
+                if (to.HasValue)
+                {
+                    to = to.Value.Date.AddDays(1).AddTicks(-1);
+                }
+
+                var fileBytes = await _exportService.ExportAllTrackersToExcelAsync(userId, from, to);
+
+                var fileName =
+                    from.HasValue || to.HasValue
+                        ? $"WellTrack_Export_{DateTime.Now:yyyyMMdd_HHmmss}_Filtered.xlsx"
+                        : $"WellTrack_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
 
                 return File(
                     fileBytes,
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    $"WellTrack_Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx"
+                    fileName
                 );
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Error exporting to Excel", error = ex.Message });
+                return StatusCode(500, new
+                {
+                    message = "Error exporting to Excel",
+                    error = ex.Message
+                });
             }
         }
     }

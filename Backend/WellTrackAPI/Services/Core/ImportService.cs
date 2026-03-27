@@ -1,43 +1,29 @@
+using System.Globalization;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using WellTrackAPI.Data;
 using WellTrackAPI.DTOs;
+using WellTrackAPI.Models;
 using WellTrackAPI.Services.Interfaces;
-using WellTrackAPI.Services.Food;
-using WellTrackAPI.Services.Trackers;
 
 namespace WellTrackAPI.Services.Core
 {
     public class ImportService : IImportService
     {
-        private readonly IStepService _stepService;
-        private readonly ISleepService _sleepService;
-        private readonly IMoodService _moodService;
-        private readonly IHydrationService _hydrationService;
-        private readonly IHabitService _habitService;
-        private readonly IFoodService _foodService;
         private readonly ApplicationDbContext _context;
 
-        public ImportService(
-            IStepService stepService,
-            ISleepService sleepService,
-            IMoodService moodService,
-            IHydrationService hydrationService,
-            IHabitService habitService,
-            IFoodService foodService,
-            ApplicationDbContext context)
+        public ImportService(ApplicationDbContext context)
         {
-            _stepService = stepService;
-            _sleepService = sleepService;
-            _moodService = moodService;
-            _hydrationService = hydrationService;
-            _habitService = habitService;
-            _foodService = foodService;
             _context = context;
         }
 
-        public async Task<ImportPreviewDto> ParseAndValidateAsync(IFormFile file, string userId)
+        public async Task<ImportPreviewDto> ParseAndValidateAsync(
+            IFormFile file,
+            string userId,
+            string rangeMode,
+            DateTime? from = null,
+            DateTime? to = null)
         {
             var preview = new ImportPreviewDto();
 
@@ -54,332 +40,463 @@ namespace WellTrackAPI.Services.Core
             ParseHabitSheet(workbook, preview);
             ParseFoodSheet(workbook, preview);
 
-            preview.Steps.RemoveAll(x => x.Date > DateTime.UtcNow);
-            preview.Sleep.RemoveAll(x => x.Date > DateTime.UtcNow);
-            preview.Mood.RemoveAll(x => x.Date > DateTime.UtcNow);
-            preview.Hydration.RemoveAll(x => x.Date > DateTime.UtcNow);
-            preview.Habit.RemoveAll(x => x.Date > DateTime.UtcNow);
-            preview.Food.RemoveAll(x => x.Date > DateTime.UtcNow);
-
-            RemoveInFileDuplicates(preview);
-            await RemoveExistingDatabaseDuplicatesAndTimestampConflicts(preview, userId);
+            RemoveFutureDatedRows(preview);
+            ApplyRange(preview, rangeMode, from, to);
+            await BuildOverwriteConflictsAsync(preview, userId);
 
             return preview;
         }
 
-        public async Task SaveAsync(ImportPreviewDto dto, string userId)
+        public async Task SaveAsync(ImportPreviewDto dto, string userId, bool overwriteConflicts)
         {
             if (dto.Errors.Any())
                 throw new InvalidOperationException("Cannot import data with validation errors.");
 
-            await _stepService.AddRangeAsync(dto.Steps, userId);
-            await _sleepService.AddRangeAsync(dto.Sleep, userId);
-            await _moodService.AddRangeAsync(dto.Mood, userId);
-            await _hydrationService.AddRangeAsync(dto.Hydration, userId);
-            await _habitService.AddRangeAsync(dto.Habit, userId);
-            await _foodService.AddRangeAsync(dto.Food, userId);
+            await UpsertStepsAsync(dto.Steps, userId, overwriteConflicts);
+            await UpsertSleepAsync(dto.Sleep, userId, overwriteConflicts);
+            await UpsertMoodAsync(dto.Mood, userId, overwriteConflicts);
+            await UpsertHydrationAsync(dto.Hydration, userId, overwriteConflicts);
+            await UpsertHabitAsync(dto.Habit, userId, overwriteConflicts);
+            await UpsertFoodAsync(dto.Food, userId, overwriteConflicts);
+
+            await _context.SaveChangesAsync();
         }
 
-        private void RemoveInFileDuplicates(ImportPreviewDto preview)
+        private async Task UpsertStepsAsync(IEnumerable<StepDTO> rows, string userId, bool overwriteConflicts)
         {
-            var originalStepsCount = preview.Steps.Count;
+            var existing = await _context.StepEntries
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+
+            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
+
+            foreach (var row in rows)
+            {
+                var rowDate = row.Date ?? DateTime.UtcNow;
+                var key = FormatUtc(rowDate);
+
+                if (existingByTimestamp.TryGetValue(key, out var entity))
+                {
+                    if (!overwriteConflicts)
+                        continue;
+
+                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.ActivityType = row.ActivityType;
+                    entity.StepsCount = row.StepsCount;
+                    continue;
+                }
+
+                var newEntity = new StepEntry
+                {
+                    UserId = userId,
+                    Date = NormalizeToUtc(rowDate),
+                    ActivityType = row.ActivityType,
+                    StepsCount = row.StepsCount
+                };
+
+                _context.StepEntries.Add(newEntity);
+                existingByTimestamp[key] = newEntity;
+            }
+        }
+
+        private async Task UpsertSleepAsync(IEnumerable<SleepDTO> rows, string userId, bool overwriteConflicts)
+        {
+            var existing = await _context.SleepEntries
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+
+            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
+
+            foreach (var row in rows)
+            {
+                var rowDate = row.Date ?? DateTime.UtcNow;
+                var key = FormatUtc(rowDate);
+                var hours = row.Hours > 0 ? row.Hours : CalculateSleepHours(row.BedTime, row.WakeUpTime);
+
+                if (existingByTimestamp.TryGetValue(key, out var entity))
+                {
+                    if (!overwriteConflicts)
+                        continue;
+
+                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.BedTime = NormalizeToUtc(row.BedTime);
+                    entity.WakeUpTime = NormalizeToUtc(row.WakeUpTime);
+                    entity.Hours = hours;
+                    entity.Quality = row.Quality;
+                    continue;
+                }
+
+                var newEntity = new SleepEntry
+                {
+                    UserId = userId,
+                    Date = NormalizeToUtc(rowDate),
+                    BedTime = NormalizeToUtc(row.BedTime),
+                    WakeUpTime = NormalizeToUtc(row.WakeUpTime),
+                    Hours = hours,
+                    Quality = row.Quality
+                };
+
+                _context.SleepEntries.Add(newEntity);
+                existingByTimestamp[key] = newEntity;
+            }
+        }
+
+        private async Task UpsertMoodAsync(IEnumerable<MoodDTO> rows, string userId, bool overwriteConflicts)
+        {
+            var existing = await _context.MoodEntries
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+
+            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
+
+            foreach (var row in rows)
+            {
+                var rowDate = row.Date ?? DateTime.UtcNow;
+                var key = FormatUtc(rowDate);
+
+                if (existingByTimestamp.TryGetValue(key, out var entity))
+                {
+                    if (!overwriteConflicts)
+                        continue;
+
+                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.Mood = row.Mood;
+                    entity.Notes = row.Notes;
+                    continue;
+                }
+
+                var newEntity = new MoodEntry
+                {
+                    UserId = userId,
+                    Date = NormalizeToUtc(rowDate),
+                    Mood = row.Mood,
+                    Notes = row.Notes
+                };
+
+                _context.MoodEntries.Add(newEntity);
+                existingByTimestamp[key] = newEntity;
+            }
+        }
+
+        private async Task UpsertHydrationAsync(IEnumerable<HydrationDTO> rows, string userId, bool overwriteConflicts)
+        {
+            var existing = await _context.HydrationEntries
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+
+            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
+
+            foreach (var row in rows)
+            {
+                var rowDate = row.Date ?? DateTime.UtcNow;
+                var key = FormatUtc(rowDate);
+
+                if (existingByTimestamp.TryGetValue(key, out var entity))
+                {
+                    if (!overwriteConflicts)
+                        continue;
+
+                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.WaterIntakeLiters = row.WaterIntakeLiters;
+                    continue;
+                }
+
+                var newEntity = new HydrationEntry
+                {
+                    UserId = userId,
+                    Date = NormalizeToUtc(rowDate),
+                    WaterIntakeLiters = row.WaterIntakeLiters
+                };
+
+                _context.HydrationEntries.Add(newEntity);
+                existingByTimestamp[key] = newEntity;
+            }
+        }
+
+        private async Task UpsertHabitAsync(IEnumerable<HabitDTO> rows, string userId, bool overwriteConflicts)
+        {
+            var existing = await _context.HabitEntries
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+
+            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
+
+            foreach (var row in rows)
+            {
+                var rowDate = row.Date ?? DateTime.UtcNow;
+                var key = FormatUtc(rowDate);
+
+                if (existingByTimestamp.TryGetValue(key, out var entity))
+                {
+                    if (!overwriteConflicts)
+                        continue;
+
+                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.Name = row.Name;
+                    entity.Completed = row.Completed;
+                    continue;
+                }
+
+                var newEntity = new HabitEntry
+                {
+                    UserId = userId,
+                    Date = NormalizeToUtc(rowDate),
+                    Name = row.Name,
+                    Completed = row.Completed
+                };
+
+                _context.HabitEntries.Add(newEntity);
+                existingByTimestamp[key] = newEntity;
+            }
+        }
+
+        private async Task UpsertFoodAsync(IEnumerable<FoodEntryDTO> rows, string userId, bool overwriteConflicts)
+        {
+            var existing = await _context.FoodEntries
+                .Where(x => x.UserId == userId)
+                .ToListAsync();
+
+            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
+
+            foreach (var row in rows)
+            {
+                var rowDate = row.Date == default ? DateTime.UtcNow : row.Date;
+                var key = FormatUtc(rowDate);
+
+                if (existingByTimestamp.TryGetValue(key, out var entity))
+                {
+                    if (!overwriteConflicts)
+                        continue;
+
+                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.FoodName = row.FoodName;
+                    entity.Calories = row.Calories;
+                    entity.Protein = row.Protein;
+                    entity.Carbs = row.Carbs;
+                    entity.Fat = row.Fat;
+                    entity.ServingSize = row.ServingSize;
+                    entity.MealType = row.MealType;
+                    continue;
+                }
+
+                var newEntity = new FoodEntry
+                {
+                    UserId = userId,
+                    Date = NormalizeToUtc(rowDate),
+                    FoodName = row.FoodName,
+                    Calories = row.Calories,
+                    Protein = row.Protein,
+                    Carbs = row.Carbs,
+                    Fat = row.Fat,
+                    ServingSize = row.ServingSize,
+                    MealType = row.MealType
+                };
+
+                _context.FoodEntries.Add(newEntity);
+                existingByTimestamp[key] = newEntity;
+            }
+        }
+
+        private async Task BuildOverwriteConflictsAsync(ImportPreviewDto preview, string userId)
+        {
+            var stepKeys = await _context.StepEntries
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Date)
+                .ToListAsync();
+            var stepKeySet = stepKeys.Select(FormatUtc).ToHashSet();
+            preview.OverwriteConflicts.Steps = preview.Steps
+                .Where(x => x.Date.HasValue && stepKeySet.Contains(FormatUtc(x.Date.Value)))
+                .ToList();
+
+            var sleepKeys = await _context.SleepEntries
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Date)
+                .ToListAsync();
+            var sleepKeySet = sleepKeys.Select(FormatUtc).ToHashSet();
+            preview.OverwriteConflicts.Sleep = preview.Sleep
+                .Where(x => x.Date.HasValue && sleepKeySet.Contains(FormatUtc(x.Date.Value)))
+                .ToList();
+
+            var moodKeys = await _context.MoodEntries
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Date)
+                .ToListAsync();
+            var moodKeySet = moodKeys.Select(FormatUtc).ToHashSet();
+            preview.OverwriteConflicts.Mood = preview.Mood
+                .Where(x => x.Date.HasValue && moodKeySet.Contains(FormatUtc(x.Date.Value)))
+                .ToList();
+
+            var hydrationKeys = await _context.HydrationEntries
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Date)
+                .ToListAsync();
+            var hydrationKeySet = hydrationKeys.Select(FormatUtc).ToHashSet();
+            preview.OverwriteConflicts.Hydration = preview.Hydration
+                .Where(x => x.Date.HasValue && hydrationKeySet.Contains(FormatUtc(x.Date.Value)))
+                .ToList();
+
+            var habitKeys = await _context.HabitEntries
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Date)
+                .ToListAsync();
+            var habitKeySet = habitKeys.Select(FormatUtc).ToHashSet();
+            preview.OverwriteConflicts.Habit = preview.Habit
+                .Where(x => x.Date.HasValue && habitKeySet.Contains(FormatUtc(x.Date.Value)))
+                .ToList();
+
+            var foodKeys = await _context.FoodEntries
+                .Where(x => x.UserId == userId)
+                .Select(x => x.Date)
+                .ToListAsync();
+            var foodKeySet = foodKeys.Select(FormatUtc).ToHashSet();
+            preview.OverwriteConflicts.Food = preview.Food
+                .Where(x => foodKeySet.Contains(FormatUtc(x.Date)))
+                .ToList();
+
+            AddConflictWarning(preview, "Steps", preview.OverwriteConflicts.Steps.Count);
+            AddConflictWarning(preview, "Sleep", preview.OverwriteConflicts.Sleep.Count);
+            AddConflictWarning(preview, "Mood", preview.OverwriteConflicts.Mood.Count);
+            AddConflictWarning(preview, "Hydration", preview.OverwriteConflicts.Hydration.Count);
+            AddConflictWarning(preview, "Habit", preview.OverwriteConflicts.Habit.Count);
+            AddConflictWarning(preview, "Food", preview.OverwriteConflicts.Food.Count);
+        }
+
+        private static void AddConflictWarning(ImportPreviewDto preview, string trackerName, int count)
+        {
+            if (count <= 0)
+                return;
+
+            preview.Warnings.Add($"{trackerName}: {count} row(s) match existing database timestamps and are available as overwrite conflicts.");
+        }
+
+        private void RemoveFutureDatedRows(ImportPreviewDto preview)
+        {
+            var now = DateTime.UtcNow;
+
             preview.Steps = preview.Steps
-                .GroupBy(GetStepKey)
-                .Select(g => g.First())
+                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
-            if (preview.Steps.Count < originalStepsCount)
-                preview.Warnings.Add($"Steps: {originalStepsCount - preview.Steps.Count} duplicate row(s) found inside the file and removed.");
 
-            var originalSleepCount = preview.Sleep.Count;
             preview.Sleep = preview.Sleep
-                .GroupBy(GetSleepKey)
-                .Select(g => g.First())
+                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
-            if (preview.Sleep.Count < originalSleepCount)
-                preview.Warnings.Add($"Sleep: {originalSleepCount - preview.Sleep.Count} duplicate row(s) found inside the file and removed.");
 
-            var originalMoodCount = preview.Mood.Count;
             preview.Mood = preview.Mood
-                .GroupBy(GetMoodKey)
-                .Select(g => g.First())
+                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
-            if (preview.Mood.Count < originalMoodCount)
-                preview.Warnings.Add($"Mood: {originalMoodCount - preview.Mood.Count} duplicate row(s) found inside the file and removed.");
 
-            var originalHydrationCount = preview.Hydration.Count;
             preview.Hydration = preview.Hydration
-                .GroupBy(GetHydrationKey)
-                .Select(g => g.First())
+                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
-            if (preview.Hydration.Count < originalHydrationCount)
-                preview.Warnings.Add($"Hydration: {originalHydrationCount - preview.Hydration.Count} duplicate row(s) found inside the file and removed.");
 
-            var originalHabitCount = preview.Habit.Count;
             preview.Habit = preview.Habit
-                .GroupBy(GetHabitKey)
-                .Select(g => g.First())
+                .Where(x => !x.Date.HasValue || NormalizeToUtc(x.Date.Value) <= now)
                 .ToList();
-            if (preview.Habit.Count < originalHabitCount)
-                preview.Warnings.Add($"Habit: {originalHabitCount - preview.Habit.Count} duplicate row(s) found inside the file and removed.");
 
-            var originalFoodCount = preview.Food.Count;
             preview.Food = preview.Food
-                .GroupBy(GetFoodKey)
-                .Select(g => g.First())
+                .Where(x => NormalizeToUtc(x.Date) <= now)
                 .ToList();
-            if (preview.Food.Count < originalFoodCount)
-                preview.Warnings.Add($"Food: {originalFoodCount - preview.Food.Count} duplicate row(s) found inside the file and removed.");
         }
 
-        private async Task RemoveExistingDatabaseDuplicatesAndTimestampConflicts(ImportPreviewDto preview, string userId)
+        private void ApplyRange(ImportPreviewDto preview, string rangeMode, DateTime? from, DateTime? to)
         {
-            await ProcessStepDuplicates(preview, userId);
-            await ProcessSleepDuplicates(preview, userId);
-            await ProcessMoodDuplicates(preview, userId);
-            await ProcessHydrationDuplicates(preview, userId);
-            await ProcessHabitDuplicates(preview, userId);
-            await ProcessFoodDuplicates(preview, userId);
-        }
+            int beforeCount =
+                preview.Steps.Count +
+                preview.Sleep.Count +
+                preview.Mood.Count +
+                preview.Hydration.Count +
+                preview.Habit.Count +
+                preview.Food.Count;
 
-        private async Task ProcessStepDuplicates(ImportPreviewDto preview, string userId)
-        {
-            var dbRows = await _context.StepEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var exactKeys = dbRows.Select(GetStepKey).ToHashSet();
-            var timestampKeys = dbRows.Select(x => FormatUtc(x.Date)).ToHashSet();
-
-            var exactDuplicates = preview.Steps
-                .Where(x => exactKeys.Contains(GetStepKey(x)))
-                .ToList();
-
-            if (exactDuplicates.Any())
+            if (string.Equals(rangeMode, "all", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(rangeMode))
             {
+                return;
+            }
+
+            if (string.Equals(rangeMode, "today", StringComparison.OrdinalIgnoreCase))
+            {
+                var todayUtc = DateTime.UtcNow.Date;
+
                 preview.Steps = preview.Steps
-                    .Where(x => !exactKeys.Contains(GetStepKey(x)))
+                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
                     .ToList();
 
-                preview.Warnings.Add($"Steps: {exactDuplicates.Count} row(s) already exist in database and will not be imported.");
+                preview.Sleep = preview.Sleep
+                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
+                    .ToList();
+
+                preview.Mood = preview.Mood
+                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
+                    .ToList();
+
+                preview.Hydration = preview.Hydration
+                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
+                    .ToList();
+
+                preview.Habit = preview.Habit
+                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
+                    .ToList();
+
+                preview.Food = preview.Food
+                    .Where(x => NormalizeToUtc(x.Date).Date == todayUtc)
+                    .ToList();
             }
-
-            var timestampConflicts = preview.Steps
-                .Where(x => timestampKeys.Contains(FormatUtc(x.Date)))
-                .ToList();
-
-            if (timestampConflicts.Any())
+            else if (string.Equals(rangeMode, "range", StringComparison.OrdinalIgnoreCase))
             {
+                var normalizedFrom = from?.ToUniversalTime();
+                var normalizedTo = to?.ToUniversalTime();
+
                 preview.Steps = preview.Steps
-                    .Where(x => !timestampKeys.Contains(FormatUtc(x.Date)))
+                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
                     .ToList();
 
-                preview.Warnings.Add($"Steps: {timestampConflicts.Count} row(s) conflict with an existing record at the same timestamp and will not be imported.");
-            }
-        }
-
-        private async Task ProcessSleepDuplicates(ImportPreviewDto preview, string userId)
-        {
-            var dbRows = await _context.SleepEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var exactKeys = dbRows.Select(GetSleepKey).ToHashSet();
-            var timestampKeys = dbRows.Select(x => FormatUtc(x.Date)).ToHashSet();
-
-            var exactDuplicates = preview.Sleep
-                .Where(x => exactKeys.Contains(GetSleepKey(x)))
-                .ToList();
-
-            if (exactDuplicates.Any())
-            {
                 preview.Sleep = preview.Sleep
-                    .Where(x => !exactKeys.Contains(GetSleepKey(x)))
+                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
                     .ToList();
 
-                preview.Warnings.Add($"Sleep: {exactDuplicates.Count} row(s) already exist in database and will not be imported.");
-            }
-
-            var timestampConflicts = preview.Sleep
-                .Where(x => timestampKeys.Contains(FormatUtc(x.Date)))
-                .ToList();
-
-            if (timestampConflicts.Any())
-            {
-                preview.Sleep = preview.Sleep
-                    .Where(x => !timestampKeys.Contains(FormatUtc(x.Date)))
-                    .ToList();
-
-                preview.Warnings.Add($"Sleep: {timestampConflicts.Count} row(s) conflict with an existing record at the same timestamp and will not be imported.");
-            }
-        }
-
-        private async Task ProcessMoodDuplicates(ImportPreviewDto preview, string userId)
-        {
-            var dbRows = await _context.MoodEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var exactKeys = dbRows.Select(GetMoodKey).ToHashSet();
-            var timestampKeys = dbRows.Select(x => FormatUtc(x.Date)).ToHashSet();
-
-            var exactDuplicates = preview.Mood
-                .Where(x => exactKeys.Contains(GetMoodKey(x)))
-                .ToList();
-
-            if (exactDuplicates.Any())
-            {
                 preview.Mood = preview.Mood
-                    .Where(x => !exactKeys.Contains(GetMoodKey(x)))
+                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
                     .ToList();
 
-                preview.Warnings.Add($"Mood: {exactDuplicates.Count} row(s) already exist in database and will not be imported.");
-            }
-
-            var timestampConflicts = preview.Mood
-                .Where(x => timestampKeys.Contains(FormatUtc(x.Date)))
-                .ToList();
-
-            if (timestampConflicts.Any())
-            {
-                preview.Mood = preview.Mood
-                    .Where(x => !timestampKeys.Contains(FormatUtc(x.Date)))
-                    .ToList();
-
-                preview.Warnings.Add($"Mood: {timestampConflicts.Count} row(s) conflict with an existing record at the same timestamp and will not be imported.");
-            }
-        }
-
-        private async Task ProcessHydrationDuplicates(ImportPreviewDto preview, string userId)
-        {
-            var dbRows = await _context.HydrationEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var exactKeys = dbRows.Select(GetHydrationKey).ToHashSet();
-            var timestampKeys = dbRows.Select(x => FormatUtc(x.Date)).ToHashSet();
-
-            var exactDuplicates = preview.Hydration
-                .Where(x => exactKeys.Contains(GetHydrationKey(x)))
-                .ToList();
-
-            if (exactDuplicates.Any())
-            {
                 preview.Hydration = preview.Hydration
-                    .Where(x => !exactKeys.Contains(GetHydrationKey(x)))
+                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
                     .ToList();
 
-                preview.Warnings.Add($"Hydration: {exactDuplicates.Count} row(s) already exist in database and will not be imported.");
-            }
-
-            var timestampConflicts = preview.Hydration
-                .Where(x => timestampKeys.Contains(FormatUtc(x.Date)))
-                .ToList();
-
-            if (timestampConflicts.Any())
-            {
-                preview.Hydration = preview.Hydration
-                    .Where(x => !timestampKeys.Contains(FormatUtc(x.Date)))
-                    .ToList();
-
-                preview.Warnings.Add($"Hydration: {timestampConflicts.Count} row(s) conflict with an existing record at the same timestamp and will not be imported.");
-            }
-        }
-
-        private async Task ProcessHabitDuplicates(ImportPreviewDto preview, string userId)
-        {
-            var dbRows = await _context.HabitEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var exactKeys = dbRows.Select(GetHabitKey).ToHashSet();
-            var timestampKeys = dbRows.Select(x => FormatUtc(x.Date)).ToHashSet();
-
-            var exactDuplicates = preview.Habit
-                .Where(x => exactKeys.Contains(GetHabitKey(x)))
-                .ToList();
-
-            if (exactDuplicates.Any())
-            {
                 preview.Habit = preview.Habit
-                    .Where(x => !exactKeys.Contains(GetHabitKey(x)))
+                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
                     .ToList();
 
-                preview.Warnings.Add($"Habit: {exactDuplicates.Count} row(s) already exist in database and will not be imported.");
+                preview.Food = preview.Food
+                    .Where(x => IsWithinRange(NormalizeToUtc(x.Date), normalizedFrom, normalizedTo))
+                    .ToList();
             }
 
-            var timestampConflicts = preview.Habit
-                .Where(x => timestampKeys.Contains(FormatUtc(x.Date)))
-                .ToList();
+            int afterCount =
+                preview.Steps.Count +
+                preview.Sleep.Count +
+                preview.Mood.Count +
+                preview.Hydration.Count +
+                preview.Habit.Count +
+                preview.Food.Count;
 
-            if (timestampConflicts.Any())
+            int removed = beforeCount - afterCount;
+            if (removed > 0)
             {
-                preview.Habit = preview.Habit
-                    .Where(x => !timestampKeys.Contains(FormatUtc(x.Date)))
-                    .ToList();
-
-                preview.Warnings.Add($"Habit: {timestampConflicts.Count} row(s) conflict with an existing record at the same timestamp and will not be imported.");
+                preview.Warnings.Add($"{removed} row(s) were excluded because they are outside the selected import range.");
             }
         }
 
-        private async Task ProcessFoodDuplicates(ImportPreviewDto preview, string userId)
+        private static bool IsWithinRange(DateTime value, DateTime? from, DateTime? to)
         {
-            var dbRows = await _context.FoodEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
+            if (from.HasValue && value < from.Value)
+                return false;
 
-            var exactKeys = dbRows.Select(GetFoodKey).ToHashSet();
-            var timestampKeys = dbRows.Select(x => FormatUtc(x.Date)).ToHashSet();
+            if (to.HasValue && value > to.Value)
+                return false;
 
-            var exactDuplicates = preview.Food
-                .Where(x => exactKeys.Contains(GetFoodKey(x)))
-                .ToList();
-
-            if (exactDuplicates.Any())
-            {
-                preview.Food = preview.Food
-                    .Where(x => !exactKeys.Contains(GetFoodKey(x)))
-                    .ToList();
-
-                preview.Warnings.Add($"Food: {exactDuplicates.Count} row(s) already exist in database and will not be imported.");
-            }
-
-            var timestampConflicts = preview.Food
-                .Where(x => timestampKeys.Contains(FormatUtc(x.Date)))
-                .ToList();
-
-            if (timestampConflicts.Any())
-            {
-                preview.Food = preview.Food
-                    .Where(x => !timestampKeys.Contains(FormatUtc(x.Date)))
-                    .ToList();
-
-                preview.Warnings.Add($"Food: {timestampConflicts.Count} row(s) conflict with an existing record at the same timestamp and will not be imported.");
-            }
+            return true;
         }
-
-        #region Key Builders
-
-        private string GetStepKey(dynamic x)
-            => $"{FormatUtc(x.Date)}|{NormalizeText(x.ActivityType)}|{x.StepsCount}";
-
-        private string GetSleepKey(dynamic x)
-            => $"{FormatUtc(x.Date)}|{FormatUtc(x.BedTime)}|{FormatUtc(x.WakeUpTime)}|{NormalizeText(x.Quality)}";
-
-        private string GetMoodKey(dynamic x)
-            => $"{FormatUtc(x.Date)}|{NormalizeText(x.Mood)}|{NormalizeNullableText(x.Notes)}";
-
-        private string GetHydrationKey(dynamic x)
-            => $"{FormatUtc(x.Date)}|{x.WaterIntakeLiters}";
-
-        private string GetHabitKey(dynamic x)
-            => $"{FormatUtc(x.Date)}|{NormalizeText(x.Name)}|{x.Completed}";
-
-        private string GetFoodKey(dynamic x)
-            => $"{FormatUtc(x.Date)}|{NormalizeText(x.FoodName)}|{x.Calories}|{x.Protein}|{x.Carbs}|{x.Fat}|{NormalizeText(x.ServingSize)}|{NormalizeText(x.MealType)}";
-
-        #endregion
-
-        #region Sheet Parsers
 
         private void ParseStepsSheet(XLWorkbook workbook, ImportPreviewDto preview)
         {
@@ -387,31 +504,33 @@ namespace WellTrackAPI.Services.Core
             if (sheet == null) return;
 
             int row = 2;
-            while (!sheet.Cell(row, 1).IsEmpty())
+            while (!IsRowEmpty(sheet, row, 3))
             {
                 var errors = new List<string>();
 
-                DateTime? date = ParseLocalDateTimeToUtc(sheet.Cell(row, 1).GetValue<string>(), errors, row, "Steps.Date");
-                string activity = NormalizeOption(sheet.Cell(row, 2).GetValue<string>() ?? "");
-                string stepsCountStr = sheet.Cell(row, 3).GetValue<string>()?.Trim() ?? "";
-
-                int stepsCount = 0;
+                var date = ReadDateTimeCell(sheet.Cell(row, 1), errors, row, "Steps.Date");
+                var activity = NormalizeOption(ReadTextCell(sheet.Cell(row, 2), errors, row, "Steps.ActivityType"));
+                var stepsCount = ReadIntegerCell(sheet.Cell(row, 3), errors, row, "Steps.StepsCount");
 
                 if (!new[] { "Running", "Walking", "Hiking", "Cycling" }.Contains(activity))
                     errors.Add($"Row {row}: Invalid ActivityType '{activity}'");
 
-                if (!int.TryParse(stepsCountStr, out stepsCount) || stepsCount < 0)
-                    errors.Add($"Row {row}: Invalid StepsCount '{stepsCountStr}'");
+                if (stepsCount < 0)
+                    errors.Add($"Row {row}: StepsCount must be >= 0");
 
                 if (errors.Any())
+                {
                     preview.Errors.AddRange(errors);
+                }
                 else
+                {
                     preview.Steps.Add(new StepDTO
                     {
                         Date = date,
                         ActivityType = activity,
                         StepsCount = stepsCount
                     });
+                }
 
                 row++;
             }
@@ -423,39 +542,44 @@ namespace WellTrackAPI.Services.Core
             if (sheet == null) return;
 
             int row = 2;
-            while (!sheet.Cell(row, 1).IsEmpty())
+            while (!IsRowEmpty(sheet, row, 5))
             {
                 var errors = new List<string>();
 
-                DateTime? dateUtc = ParseLocalDateTimeToUtc(sheet.Cell(row, 1).GetValue<string>(), errors, row, "Sleep.Date");
-                DateTime? bedTimeUtc = ParseLocalDateTimeToUtc(sheet.Cell(row, 2).GetValue<string>(), errors, row, "BedTime");
-                DateTime? wakeUpTimeUtc = ParseLocalDateTimeToUtc(sheet.Cell(row, 3).GetValue<string>(), errors, row, "WakeUpTime");
-                string quality = NormalizeOption(sheet.Cell(row, 5).GetValue<string>() ?? "");
+                var date = ReadDateTimeCell(sheet.Cell(row, 1), errors, row, "Sleep.Date");
+                var bedTime = ReadDateTimeCell(sheet.Cell(row, 2), errors, row, "Sleep.BedTime");
+                var wakeUpTime = ReadDateTimeCell(sheet.Cell(row, 3), errors, row, "Sleep.WakeUpTime");
+                var hours = ReadDoubleCell(sheet.Cell(row, 4), errors, row, "Sleep.Hours");
+                var quality = NormalizeOption(ReadTextCell(sheet.Cell(row, 5), errors, row, "Sleep.Quality"));
 
-                if (dateUtc == null || bedTimeUtc == null || wakeUpTimeUtc == null)
-                {
-                    preview.Errors.AddRange(errors);
-                    row++;
-                    continue;
-                }
-
-                double hours = (wakeUpTimeUtc.Value - bedTimeUtc.Value).TotalHours;
                 if (hours <= 0 || hours > 24)
-                    errors.Add($"Row {row}: Sleep hours '{hours}' out of range (0-24)");
+                    errors.Add($"Row {row}: Sleep.Hours '{hours}' out of range (0-24)");
 
                 if (!new[] { "Good", "Average", "Poor" }.Contains(quality))
                     errors.Add($"Row {row}: Invalid Quality '{quality}'");
 
                 if (errors.Any())
+                {
                     preview.Errors.AddRange(errors);
+                }
                 else
+                {
+                    var calculatedHours = CalculateSleepHours(bedTime!.Value, wakeUpTime!.Value);
+                    if (Math.Abs(calculatedHours - hours) > 0.2)
+                    {
+                        preview.Warnings.Add($"Row {row}: Sleep.Hours value differs from BedTime/WakeUpTime. Calculated value {calculatedHours:F2} will be used.");
+                        hours = calculatedHours;
+                    }
+
                     preview.Sleep.Add(new SleepDTO
                     {
-                        Date = dateUtc.Value,
-                        BedTime = bedTimeUtc.Value,
-                        WakeUpTime = wakeUpTimeUtc.Value,
+                        Date = date,
+                        BedTime = bedTime.Value,
+                        WakeUpTime = wakeUpTime.Value,
+                        Hours = hours,
                         Quality = quality
                     });
+                }
 
                 row++;
             }
@@ -467,26 +591,30 @@ namespace WellTrackAPI.Services.Core
             if (sheet == null) return;
 
             int row = 2;
-            while (!sheet.Cell(row, 1).IsEmpty())
+            while (!IsRowEmpty(sheet, row, 3))
             {
                 var errors = new List<string>();
 
-                DateTime? date = ParseLocalDateTimeToUtc(sheet.Cell(row, 1).GetValue<string>(), errors, row, "Mood.Date");
-                string mood = NormalizeOption(sheet.Cell(row, 2).GetValue<string>() ?? "");
-                string? notes = sheet.Cell(row, 3).GetValue<string>()?.Trim();
+                var date = ReadDateTimeCell(sheet.Cell(row, 1), errors, row, "Mood.Date");
+                var mood = NormalizeOption(ReadTextCell(sheet.Cell(row, 2), errors, row, "Mood.Mood"));
+                var notes = ReadOptionalTextCell(sheet.Cell(row, 3));
 
                 if (!new[] { "Happy", "Neutral", "Relaxed", "Sad", "Angry" }.Contains(mood))
                     errors.Add($"Row {row}: Invalid Mood '{mood}'");
 
                 if (errors.Any())
+                {
                     preview.Errors.AddRange(errors);
+                }
                 else
+                {
                     preview.Mood.Add(new MoodDTO
                     {
                         Date = date,
                         Mood = mood,
                         Notes = notes
                     });
+                }
 
                 row++;
             }
@@ -498,24 +626,28 @@ namespace WellTrackAPI.Services.Core
             if (sheet == null) return;
 
             int row = 2;
-            while (!sheet.Cell(row, 1).IsEmpty())
+            while (!IsRowEmpty(sheet, row, 2))
             {
                 var errors = new List<string>();
 
-                DateTime? date = ParseLocalDateTimeToUtc(sheet.Cell(row, 1).GetValue<string>(), errors, row, "Hydration.Date");
-                string intakeStr = sheet.Cell(row, 2).GetValue<string>()?.Trim() ?? "";
+                var date = ReadDateTimeCell(sheet.Cell(row, 1), errors, row, "Hydration.Date");
+                var intake = ReadDoubleCell(sheet.Cell(row, 2), errors, row, "Hydration.WaterIntakeLiters");
 
-                if (!double.TryParse(intakeStr, out double intake) || intake < 0.1 || intake > 6.0)
-                    errors.Add($"Row {row}: Invalid WaterIntakeLiters '{intakeStr}'");
+                if (intake < 0.1 || intake > 6.0)
+                    errors.Add($"Row {row}: Invalid WaterIntakeLiters '{intake}'");
 
                 if (errors.Any())
+                {
                     preview.Errors.AddRange(errors);
+                }
                 else
+                {
                     preview.Hydration.Add(new HydrationDTO
                     {
                         Date = date,
                         WaterIntakeLiters = intake
                     });
+                }
 
                 row++;
             }
@@ -527,25 +659,27 @@ namespace WellTrackAPI.Services.Core
             if (sheet == null) return;
 
             int row = 2;
-            while (!sheet.Cell(row, 1).IsEmpty())
+            while (!IsRowEmpty(sheet, row, 3))
             {
                 var errors = new List<string>();
 
-                DateTime? date = ParseLocalDateTimeToUtc(sheet.Cell(row, 1).GetValue<string>(), errors, row, "Habit.Date");
-                string name = sheet.Cell(row, 2).GetValue<string>()?.Trim() ?? "";
-                string completedStr = sheet.Cell(row, 3).GetValue<string>()?.Trim().ToLower() ?? "";
-
-                bool completed = completedStr == "true" || completedStr == "yes";
+                var date = ReadDateTimeCell(sheet.Cell(row, 1), errors, row, "Habit.Date");
+                var name = ReadTextCell(sheet.Cell(row, 2), errors, row, "Habit.Name");
+                var completed = ReadBooleanCell(sheet.Cell(row, 3), errors, row, "Habit.Completed");
 
                 if (errors.Any())
+                {
                     preview.Errors.AddRange(errors);
+                }
                 else
+                {
                     preview.Habit.Add(new HabitDTO
                     {
                         Date = date,
                         Name = name,
                         Completed = completed
                     });
+                }
 
                 row++;
             }
@@ -557,28 +691,34 @@ namespace WellTrackAPI.Services.Core
             if (sheet == null) return;
 
             int row = 2;
-            while (!sheet.Cell(row, 1).IsEmpty())
+            while (!IsRowEmpty(sheet, row, 8))
             {
                 var errors = new List<string>();
 
-                DateTime? date = ParseLocalDateTimeToUtc(sheet.Cell(row, 1).GetValue<string>(), errors, row, "Food.Date");
-                string name = sheet.Cell(row, 2).GetValue<string>()?.Trim() ?? "";
-                double calories = ParseDouble(sheet.Cell(row, 3).GetValue<string>(), errors, row, "Calories");
-                double protein = ParseDouble(sheet.Cell(row, 4).GetValue<string>(), errors, row, "Protein");
-                double carbs = ParseDouble(sheet.Cell(row, 5).GetValue<string>(), errors, row, "Carbs");
-                double fat = ParseDouble(sheet.Cell(row, 6).GetValue<string>(), errors, row, "Fat");
-                string serving = sheet.Cell(row, 7).GetValue<string>()?.Trim() ?? "";
-                string meal = NormalizeOption(sheet.Cell(row, 8).GetValue<string>() ?? "");
+                var date = ReadDateTimeCell(sheet.Cell(row, 1), errors, row, "Food.Date");
+                var name = ReadTextCell(sheet.Cell(row, 2), errors, row, "Food.FoodName");
+                var calories = ReadDoubleCell(sheet.Cell(row, 3), errors, row, "Food.Calories");
+                var protein = ReadDoubleCell(sheet.Cell(row, 4), errors, row, "Food.Protein");
+                var carbs = ReadDoubleCell(sheet.Cell(row, 5), errors, row, "Food.Carbs");
+                var fat = ReadDoubleCell(sheet.Cell(row, 6), errors, row, "Food.Fat");
+                var serving = ReadTextCell(sheet.Cell(row, 7), errors, row, "Food.ServingSize");
+                var meal = NormalizeOption(ReadTextCell(sheet.Cell(row, 8), errors, row, "Food.MealType"));
 
                 if (!new[] { "Breakfast", "Lunch", "Snack", "Dinner" }.Contains(meal))
                     errors.Add($"Row {row}: Invalid MealType '{meal}'");
 
+                if (calories < 0 || protein < 0 || carbs < 0 || fat < 0)
+                    errors.Add($"Row {row}: Nutrition values must be non-negative.");
+
                 if (errors.Any())
+                {
                     preview.Errors.AddRange(errors);
+                }
                 else
+                {
                     preview.Food.Add(new FoodEntryDTO
                     {
-                        Date = date ?? DateTime.UtcNow,
+                        Date = date!.Value,
                         FoodName = name,
                         Calories = calories,
                         Protein = protein,
@@ -587,71 +727,195 @@ namespace WellTrackAPI.Services.Core
                         ServingSize = serving,
                         MealType = meal
                     });
+                }
 
                 row++;
             }
         }
 
-        #endregion
-
-        #region Helpers
-
-        private DateTime? ParseLocalDateTimeToUtc(string cellValue, List<string> errors, int row, string fieldName)
+        private static bool IsRowEmpty(IXLWorksheet sheet, int row, int columnCount)
         {
-            if (string.IsNullOrWhiteSpace(cellValue))
+            for (int col = 1; col <= columnCount; col++)
+            {
+                if (!sheet.Cell(row, col).IsEmpty())
+                    return false;
+            }
+
+            return true;
+        }
+
+        private DateTime? ReadDateTimeCell(IXLCell cell, List<string> errors, int row, string fieldName)
+        {
+            if (cell.IsEmpty())
             {
                 errors.Add($"Row {row}: {fieldName} is empty");
                 return null;
             }
 
-            try
+            if (cell.DataType == XLDataType.DateTime)
             {
-                var localDateTime = DateTime.Parse(cellValue);
-
-                if (localDateTime.Kind == DateTimeKind.Unspecified)
-                    localDateTime = DateTime.SpecifyKind(localDateTime, DateTimeKind.Local);
-
-                return localDateTime.ToUniversalTime();
+                return NormalizeToUtc(cell.GetDateTime());
             }
-            catch
+
+            if (cell.DataType == XLDataType.Number)
             {
-                errors.Add($"Row {row}: Invalid datetime '{cellValue}' for {fieldName}");
-                return null;
+                try
+                {
+                    var oaDate = cell.GetDouble();
+                    return NormalizeToUtc(DateTime.FromOADate(oaDate));
+                }
+                catch
+                {
+                    // Fall through to string parse.
+                }
             }
+
+            var value = cell.GetValue<string>()?.Trim() ?? string.Empty;
+
+            if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var parsedInvariant))
+                return NormalizeToUtc(parsedInvariant);
+
+            if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out var parsedCurrent))
+                return NormalizeToUtc(parsedCurrent);
+
+            errors.Add($"Row {row}: Invalid datetime '{value}' for {fieldName}");
+            return null;
         }
 
-        private string FormatUtc(DateTime? dt)
-            => dt?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "";
-
-        private double ParseDouble(string cellValue, List<string> errors, int row, string field)
+        private static string ReadTextCell(IXLCell cell, List<string> errors, int row, string fieldName)
         {
-            if (double.TryParse(cellValue, out double val) && val >= 0)
-                return val;
+            var value = cell.GetValue<string>()?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                errors.Add($"Row {row}: {fieldName} is empty");
+            }
 
-            errors.Add($"Row {row}: Invalid {field} '{cellValue}'");
+            return value;
+        }
+
+        private static string? ReadOptionalTextCell(IXLCell cell)
+        {
+            var value = cell.GetValue<string>()?.Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private static int ReadIntegerCell(IXLCell cell, List<string> errors, int row, string fieldName)
+        {
+            if (cell.IsEmpty())
+            {
+                errors.Add($"Row {row}: {fieldName} is empty");
+                return 0;
+            }
+
+            if (cell.DataType == XLDataType.Number)
+            {
+                var value = cell.GetDouble();
+                if (Math.Abs(value - Math.Round(value)) <= 0.000001)
+                    return (int)Math.Round(value);
+
+                errors.Add($"Row {row}: {fieldName} must be an integer number");
+                return 0;
+            }
+
+            var text = cell.GetValue<string>()?.Trim() ?? string.Empty;
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var invariantValue))
+                return invariantValue;
+
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var currentValue))
+                return currentValue;
+
+            errors.Add($"Row {row}: Invalid integer '{text}' for {fieldName}");
             return 0;
         }
 
-        private string NormalizeOption(string value)
+        private static double ReadDoubleCell(IXLCell cell, List<string> errors, int row, string fieldName)
         {
-            if (string.IsNullOrWhiteSpace(value))
-                return value ?? "";
+            if (cell.IsEmpty())
+            {
+                errors.Add($"Row {row}: {fieldName} is empty");
+                return 0;
+            }
 
-            value = value.Trim().ToLower();
-            return char.ToUpper(value[0]) + value.Substring(1);
+            if (cell.DataType == XLDataType.Number)
+                return cell.GetDouble();
+
+            var text = cell.GetValue<string>()?.Trim() ?? string.Empty;
+
+            if (double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var invariantValue))
+                return invariantValue;
+
+            if (double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out var currentValue))
+                return currentValue;
+
+            errors.Add($"Row {row}: Invalid decimal '{text}' for {fieldName}");
+            return 0;
         }
 
-        private string NormalizeText(string? value)
+        private static bool ReadBooleanCell(IXLCell cell, List<string> errors, int row, string fieldName)
         {
-            if (string.IsNullOrWhiteSpace(value))
-                return "";
+            if (cell.IsEmpty())
+            {
+                errors.Add($"Row {row}: {fieldName} is empty");
+                return false;
+            }
 
-            return value.Trim().Replace("\r", "").Replace("\n", "").ToLowerInvariant();
+            if (cell.DataType == XLDataType.Boolean)
+                return cell.GetBoolean();
+
+            if (cell.DataType == XLDataType.Number)
+            {
+                var value = cell.GetDouble();
+                if (Math.Abs(value - 1d) <= 0.000001)
+                    return true;
+                if (Math.Abs(value) <= 0.000001)
+                    return false;
+
+                errors.Add($"Row {row}: Invalid boolean number '{value}' for {fieldName}");
+                return false;
+            }
+
+            var text = cell.GetValue<string>()?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (text is "true" or "yes" or "1")
+                return true;
+            if (text is "false" or "no" or "0")
+                return false;
+
+            errors.Add($"Row {row}: Invalid boolean value '{text}' for {fieldName}");
+            return false;
         }
 
-        private string NormalizeNullableText(string? value)
-            => NormalizeText(value);
+        private static double CalculateSleepHours(DateTime bed, DateTime wake)
+        {
+            var normalizedBed = NormalizeToUtc(bed);
+            var normalizedWake = NormalizeToUtc(wake);
 
-        #endregion
+            if (normalizedWake <= normalizedBed)
+                normalizedWake = normalizedWake.AddDays(1);
+
+            return Math.Round((normalizedWake - normalizedBed).TotalHours, 2);
+        }
+
+        private static DateTime NormalizeToUtc(DateTime value)
+        {
+            if (value.Kind == DateTimeKind.Utc)
+                return value;
+
+            if (value.Kind == DateTimeKind.Unspecified)
+                value = DateTime.SpecifyKind(value, DateTimeKind.Local);
+
+            return value.ToUniversalTime();
+        }
+
+        private static string FormatUtc(DateTime value)
+            => NormalizeToUtc(value).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        private static string NormalizeOption(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return value;
+
+            value = value.Trim().ToLowerInvariant();
+            return char.ToUpperInvariant(value[0]) + value.Substring(1);
+        }
     }
 }
