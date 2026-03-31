@@ -2,11 +2,61 @@ using ClosedXML.Excel;
 using WellTrackAPI.Services.Core;
 using WellTrackAPI.Services.Trackers;
 using WellTrackAPI.Services.Food;
+using WellTrackAPI.DTOs;
+using WellTrackAPI.Models;
 
 namespace WellTrackAPI.Services
 {
     public class ExportService : IExportService
     {
+        private static readonly IReadOnlyList<ColumnDefinition<StepEntry>> StepColumns = new[]
+        {
+            ColumnDefinition<StepEntry>.Text("Date", x => x.Date, ColumnDataKind.DateTime),
+            ColumnDefinition<StepEntry>.Text("ActivityType", x => x.ActivityType),
+            ColumnDefinition<StepEntry>.Text("StepsCount", x => x.StepsCount, ColumnDataKind.Integer)
+        };
+
+        private static readonly IReadOnlyList<ColumnDefinition<SleepEntry>> SleepColumns = new[]
+        {
+            ColumnDefinition<SleepEntry>.Text("Date", x => x.Date, ColumnDataKind.DateTime),
+            ColumnDefinition<SleepEntry>.Text("BedTime", x => x.BedTime, ColumnDataKind.DateTime),
+            ColumnDefinition<SleepEntry>.Text("WakeUpTime", x => x.WakeUpTime, ColumnDataKind.DateTime),
+            ColumnDefinition<SleepEntry>.Text("Hours", x => x.Hours, ColumnDataKind.Decimal),
+            ColumnDefinition<SleepEntry>.Text("Quality", x => x.Quality)
+        };
+
+        private static readonly IReadOnlyList<ColumnDefinition<MoodEntry>> MoodColumns = new[]
+        {
+            ColumnDefinition<MoodEntry>.Text("Date", x => x.Date, ColumnDataKind.DateTime),
+            ColumnDefinition<MoodEntry>.Text("Mood", x => x.Mood),
+            ColumnDefinition<MoodEntry>.Text("Notes", x => x.Notes)
+        };
+
+        private static readonly IReadOnlyList<ColumnDefinition<HydrationEntry>> HydrationColumns = new[]
+        {
+            ColumnDefinition<HydrationEntry>.Text("Date", x => x.Date, ColumnDataKind.DateTime),
+            ColumnDefinition<HydrationEntry>.Text("WaterIntakeLiters", x => x.WaterIntakeLiters, ColumnDataKind.Decimal)
+        };
+
+        private static readonly IReadOnlyList<ColumnDefinition<HabitEntry>> HabitColumns = new[]
+        {
+            ColumnDefinition<HabitEntry>.Text("Date", x => x.Date, ColumnDataKind.DateTime),
+            ColumnDefinition<HabitEntry>.Text("Name", x => x.Name),
+            ColumnDefinition<HabitEntry>.Text("Completed", x => x.Completed, ColumnDataKind.Boolean)
+        };
+
+        private static readonly IReadOnlyList<ColumnDefinition<FoodEntryDTO>> FoodColumns = new[]
+        {
+            ColumnDefinition<FoodEntryDTO>.Text("Date", x => x.Date, ColumnDataKind.DateTime),
+            ColumnDefinition<FoodEntryDTO>.Text("FoodName", x => x.FoodName),
+            ColumnDefinition<FoodEntryDTO>.Text("Calories", x => x.Calories, ColumnDataKind.Decimal),
+            ColumnDefinition<FoodEntryDTO>.Text("Protein", x => x.Protein, ColumnDataKind.Decimal),
+            ColumnDefinition<FoodEntryDTO>.Text("Carbs", x => x.Carbs, ColumnDataKind.Decimal),
+            ColumnDefinition<FoodEntryDTO>.Text("Fat", x => x.Fat, ColumnDataKind.Decimal),
+            ColumnDefinition<FoodEntryDTO>.Text("ServingSize", x => x.ServingSize),
+            ColumnDefinition<FoodEntryDTO>.Text("MealType", x => x.MealType)
+        };
+
         private readonly IStepService _stepService;
         private readonly ISleepService _sleepService;
         private readonly IMoodService _moodService;
@@ -40,42 +90,26 @@ namespace WellTrackAPI.Services
             var normalizedFrom = from?.ToUniversalTime();
             var normalizedTo = to?.ToUniversalTime();
 
-            var stepsData = (await _stepService.GetAllAsync(userId))
-                .Where(x => IsWithinRange(x.Date, normalizedFrom, normalizedTo))
-                .ToList();
-            AddSheet(workbook, "Steps", stepsData, new[] { "Date", "ActivityType", "StepsCount" });
+            var stepsData = FilterByRange(await _stepService.GetAllAsync(userId), x => x.Date, normalizedFrom, normalizedTo);
+            var sleepData = FilterByRange(await _sleepService.GetAllAsync(userId), x => x.Date, normalizedFrom, normalizedTo);
+            var moodData = FilterByRange(await _moodService.GetAllAsync(userId), x => x.Date, normalizedFrom, normalizedTo);
+            var hydrationData = FilterByRange(await _hydrationService.GetAllAsync(userId), x => x.Date, normalizedFrom, normalizedTo);
+            var habitData = FilterByRange(await _habitService.GetAllAsync(userId), x => x.Date, normalizedFrom, normalizedTo);
+            var foodData = FilterByRange(await _foodService.GetAllAsync(userId), x => x.Date, normalizedFrom, normalizedTo);
 
-            var sleepData = (await _sleepService.GetAllAsync(userId))
-                .Where(x => IsWithinRange(x.Date, normalizedFrom, normalizedTo))
-                .ToList();
-            AddSheet(workbook, "Sleep", sleepData, new[] { "Date", "BedTime", "WakeUpTime", "Hours", "Quality" });
-
-            var moodData = (await _moodService.GetAllAsync(userId))
-                .Where(x => IsWithinRange(x.Date, normalizedFrom, normalizedTo))
-                .ToList();
-            AddSheet(workbook, "Mood", moodData, new[] { "Date", "Mood", "Notes" });
-
-            var hydrationData = (await _hydrationService.GetAllAsync(userId))
-                .Where(x => IsWithinRange(x.Date, normalizedFrom, normalizedTo))
-                .ToList();
-            AddSheet(workbook, "Hydration", hydrationData, new[] { "Date", "WaterIntakeLiters" });
-
-            var habitData = (await _habitService.GetAllAsync(userId))
-                .Where(x => IsWithinRange(x.Date, normalizedFrom, normalizedTo))
-                .ToList();
-            AddSheet(workbook, "Habit", habitData, new[] { "Date", "Name", "Completed" });
-
-            var foodData = (await _foodService.GetAllAsync(userId))
-                .Where(x => IsWithinRange(x.Date, normalizedFrom, normalizedTo))
-                .ToList();
-            AddSheet(workbook, "Food", foodData, new[] { "Date", "FoodName", "Calories", "Protein", "Carbs", "Fat", "ServingSize", "MealType" });
+            BuildStepsSheet(workbook, stepsData);
+            BuildSleepSheet(workbook, sleepData);
+            BuildMoodSheet(workbook, moodData);
+            BuildHydrationSheet(workbook, hydrationData);
+            BuildHabitSheet(workbook, habitData);
+            BuildFoodSheet(workbook, foodData);
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
             return stream.ToArray();
         }
 
-        private bool IsWithinRange(DateTime value, DateTime? from, DateTime? to)
+        private static bool IsWithinRange(DateTime value, DateTime? from, DateTime? to)
         {
             if (from.HasValue && value < from.Value)
                 return false;
@@ -86,15 +120,56 @@ namespace WellTrackAPI.Services
             return true;
         }
 
-        private void AddSheet<T>(XLWorkbook workbook, string sheetName, IEnumerable<T> data, string[] headers)
+        private static List<T> FilterByRange<T>(
+            IEnumerable<T> source,
+            Func<T, DateTime> dateSelector,
+            DateTime? from,
+            DateTime? to)
+        {
+            return source
+                .Where(x => IsWithinRange(dateSelector(x), from, to))
+                .ToList();
+        }
+
+        private void BuildStepsSheet(XLWorkbook workbook, IEnumerable<StepEntry> data)
+        {
+            AddSheet(workbook, "Steps", data, StepColumns);
+        }
+
+        private void BuildSleepSheet(XLWorkbook workbook, IEnumerable<SleepEntry> data)
+        {
+            AddSheet(workbook, "Sleep", data, SleepColumns);
+        }
+
+        private void BuildMoodSheet(XLWorkbook workbook, IEnumerable<MoodEntry> data)
+        {
+            AddSheet(workbook, "Mood", data, MoodColumns);
+        }
+
+        private void BuildHydrationSheet(XLWorkbook workbook, IEnumerable<HydrationEntry> data)
+        {
+            AddSheet(workbook, "Hydration", data, HydrationColumns);
+        }
+
+        private void BuildHabitSheet(XLWorkbook workbook, IEnumerable<HabitEntry> data)
+        {
+            AddSheet(workbook, "Habit", data, HabitColumns);
+        }
+
+        private void BuildFoodSheet(XLWorkbook workbook, IEnumerable<FoodEntryDTO> data)
+        {
+            AddSheet(workbook, "Food", data, FoodColumns);
+        }
+
+        private void AddSheet<T>(XLWorkbook workbook, string sheetName, IEnumerable<T> data, IReadOnlyList<ColumnDefinition<T>> columns)
         {
             var sheet = workbook.AddWorksheet(sheetName);
 
             // Header row
-            for (int i = 0; i < headers.Length; i++)
+            for (int i = 0; i < columns.Count; i++)
             {
                 var cell = sheet.Cell(1, i + 1);
-                cell.Value = headers[i];
+                cell.Value = columns[i].Header;
                 cell.Style.Font.Bold = true;
                 cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#E2E8F0");
                 cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
@@ -103,17 +178,14 @@ namespace WellTrackAPI.Services
             int row = 2;
             foreach (var item in data)
             {
-                for (int col = 0; col < headers.Length; col++)
+                for (int col = 0; col < columns.Count; col++)
                 {
-                    var header = headers[col];
-                    var prop = item!.GetType().GetProperty(header); //reflection to get property by name
-                    if (prop == null) continue;
-
-                    var value = prop.GetValue(item);
+                    var column = columns[col];
+                    var value = column.ValueSelector(item);
                     var cell = sheet.Cell(row, col + 1);
 
                     WriteCellValue(cell, value);
-                    ApplyColumnFormat(cell, sheetName, header);
+                    ApplyColumnFormat(cell, column.Kind);
                 }
 
                 row++;
@@ -170,44 +242,23 @@ namespace WellTrackAPI.Services
             }
         }
 
-        private void ApplyColumnFormat(IXLCell cell, string sheetName, string header)
+        private static void ApplyColumnFormat(IXLCell cell, ColumnDataKind kind)
         {
-            // DateTime fields
-            if (header is "Date" or "BedTime" or "WakeUpTime")
+            switch (kind)
             {
-                cell.Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
-                return;
-            }
-
-            // Integer/Count fields
-            if (header is "StepsCount" or "Id")
-            {
-                cell.Style.NumberFormat.Format = "0"; //formatting as whole number, no decimals
-                return;
-            }
-
-            // Decimal/Float fields (calories, nutrients, water intake)
-            if (header is "Hours" or "WaterIntakeLiters" or "Calories" or "Protein" or "Carbs" or "Fat")
-            {
-                cell.Style.NumberFormat.Format = "0.##"; //formatting as decimal with up to 2 decimal places
-                return;
-            }
-
-            // Boolean fields - handled by WriteCellValue
-            if (header == "Completed")
-            {
-                return;
-            }
-
-            // Text fields (default)
-            if (header is "ActivityType" or "Mood" or "Quality" or "Notes" or "Name" or "FoodName" or "ServingSize" or "MealType")
-            {
-                // Text is the default, no special formatting needed
-                return;
+                case ColumnDataKind.DateTime:
+                    cell.Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
+                    break;
+                case ColumnDataKind.Integer:
+                    cell.Style.NumberFormat.Format = "0";
+                    break;
+                case ColumnDataKind.Decimal:
+                    cell.Style.NumberFormat.Format = "0.##";
+                    break;
             }
         }
 
-        private void FormatSheet(IXLWorksheet sheet)
+        private static void FormatSheet(IXLWorksheet sheet)
         {
             sheet.Columns().AdjustToContents();
             sheet.SheetView.FreezeRows(1);
@@ -216,6 +267,32 @@ namespace WellTrackAPI.Services
             {
                 sheet.RangeUsed()!.SetAutoFilter();
             }
+        }
+
+        private enum ColumnDataKind //enum to tell what kind of formatting to apply to a column
+        {
+            Text,
+            DateTime,
+            Integer,
+            Decimal,
+            Boolean
+        }
+
+        private sealed class ColumnDefinition<T>
+        {
+            private ColumnDefinition(string header, Func<T, object?> valueSelector, ColumnDataKind kind)
+            {
+                Header = header;
+                ValueSelector = valueSelector;
+                Kind = kind;
+            }
+
+            public string Header { get; }
+            public Func<T, object?> ValueSelector { get; }
+            public ColumnDataKind Kind { get; }
+
+            public static ColumnDefinition<T> Text(string header, Func<T, object?> selector, ColumnDataKind kind = ColumnDataKind.Text)
+                => new(header, selector, kind);
         }
     }
 }

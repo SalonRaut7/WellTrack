@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq.Expressions;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,11 @@ namespace WellTrackAPI.Services.Core
 {
     public class ImportService : IImportService
     {
+        private static readonly HashSet<string> AllowedActivityTypes = new(new[] { "Running", "Walking", "Hiking", "Cycling" }, StringComparer.Ordinal);
+        private static readonly HashSet<string> AllowedSleepQualities = new(new[] { "Good", "Average", "Poor" }, StringComparer.Ordinal);
+        private static readonly HashSet<string> AllowedMoods = new(new[] { "Happy", "Neutral", "Relaxed", "Sad", "Angry" }, StringComparer.Ordinal);
+        private static readonly HashSet<string> AllowedMealTypes = new(new[] { "Breakfast", "Lunch", "Snack", "Dinner" }, StringComparer.Ordinal);
+
         private readonly ApplicationDbContext _context;
 
         public ImportService(ApplicationDbContext context)
@@ -64,214 +70,143 @@ namespace WellTrackAPI.Services.Core
 
         private async Task UpsertStepsAsync(IEnumerable<StepDTO> rows, string userId, bool overwriteConflicts)
         {
-            var existing = await _context.StepEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
-
-            foreach (var row in rows)
-            {
-                var rowDate = row.Date ?? DateTime.UtcNow;
-                var key = FormatUtc(rowDate);
-
-                if (existingByTimestamp.TryGetValue(key, out var entity))
+            await UpsertByTimestampAsync(
+                _context.StepEntries,
+                userId,
+                rows,
+                overwriteConflicts,
+                entity => entity.Date,
+                row => row.Date,
+                (entity, row, normalizedDate) =>
                 {
-                    if (!overwriteConflicts)
-                        continue;
-
-                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.Date = normalizedDate;
                     entity.ActivityType = row.ActivityType;
                     entity.StepsCount = row.StepsCount;
-                    continue;
-                }
-
-                var newEntity = new StepEntry
+                },
+                (row, normalizedDate) => new StepEntry
                 {
                     UserId = userId,
-                    Date = NormalizeToUtc(rowDate),
+                    Date = normalizedDate,
                     ActivityType = row.ActivityType,
                     StepsCount = row.StepsCount
-                };
-
-                _context.StepEntries.Add(newEntity);
-                existingByTimestamp[key] = newEntity;
-            }
+                });
         }
 
         private async Task UpsertSleepAsync(IEnumerable<SleepDTO> rows, string userId, bool overwriteConflicts)
         {
-            var existing = await _context.SleepEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
-
-            foreach (var row in rows)
-            {
-                var rowDate = row.Date ?? DateTime.UtcNow;
-                var key = FormatUtc(rowDate);
-                var hours = row.Hours > 0 ? row.Hours : CalculateSleepHours(row.BedTime, row.WakeUpTime);
-
-                if (existingByTimestamp.TryGetValue(key, out var entity))
+            await UpsertByTimestampAsync(
+                _context.SleepEntries,
+                userId,
+                rows,
+                overwriteConflicts,
+                entity => entity.Date,
+                row => row.Date,
+                (entity, row, normalizedDate) =>
                 {
-                    if (!overwriteConflicts)
-                        continue;
-
-                    entity.Date = NormalizeToUtc(rowDate);
+                    var hours = row.Hours > 0 ? row.Hours : CalculateSleepHours(row.BedTime, row.WakeUpTime);
+                    entity.Date = normalizedDate;
                     entity.BedTime = NormalizeToUtc(row.BedTime);
                     entity.WakeUpTime = NormalizeToUtc(row.WakeUpTime);
                     entity.Hours = hours;
                     entity.Quality = row.Quality;
-                    continue;
-                }
-
-                var newEntity = new SleepEntry
+                },
+                (row, normalizedDate) =>
                 {
-                    UserId = userId,
-                    Date = NormalizeToUtc(rowDate),
-                    BedTime = NormalizeToUtc(row.BedTime),
-                    WakeUpTime = NormalizeToUtc(row.WakeUpTime),
-                    Hours = hours,
-                    Quality = row.Quality
-                };
-
-                _context.SleepEntries.Add(newEntity);
-                existingByTimestamp[key] = newEntity;
-            }
+                    var hours = row.Hours > 0 ? row.Hours : CalculateSleepHours(row.BedTime, row.WakeUpTime);
+                    return new SleepEntry
+                    {
+                        UserId = userId,
+                        Date = normalizedDate,
+                        BedTime = NormalizeToUtc(row.BedTime),
+                        WakeUpTime = NormalizeToUtc(row.WakeUpTime),
+                        Hours = hours,
+                        Quality = row.Quality
+                    };
+                });
         }
 
         private async Task UpsertMoodAsync(IEnumerable<MoodDTO> rows, string userId, bool overwriteConflicts)
         {
-            var existing = await _context.MoodEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
-
-            foreach (var row in rows)
-            {
-                var rowDate = row.Date ?? DateTime.UtcNow;
-                var key = FormatUtc(rowDate);
-
-                if (existingByTimestamp.TryGetValue(key, out var entity))
+            await UpsertByTimestampAsync(
+                _context.MoodEntries,
+                userId,
+                rows,
+                overwriteConflicts,
+                entity => entity.Date,
+                row => row.Date,
+                (entity, row, normalizedDate) =>
                 {
-                    if (!overwriteConflicts)
-                        continue;
-
-                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.Date = normalizedDate;
                     entity.Mood = row.Mood;
                     entity.Notes = row.Notes;
-                    continue;
-                }
-
-                var newEntity = new MoodEntry
+                },
+                (row, normalizedDate) => new MoodEntry
                 {
                     UserId = userId,
-                    Date = NormalizeToUtc(rowDate),
+                    Date = normalizedDate,
                     Mood = row.Mood,
                     Notes = row.Notes
-                };
-
-                _context.MoodEntries.Add(newEntity);
-                existingByTimestamp[key] = newEntity;
-            }
+                });
         }
 
         private async Task UpsertHydrationAsync(IEnumerable<HydrationDTO> rows, string userId, bool overwriteConflicts)
         {
-            var existing = await _context.HydrationEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
-
-            foreach (var row in rows)
-            {
-                var rowDate = row.Date ?? DateTime.UtcNow;
-                var key = FormatUtc(rowDate);
-
-                if (existingByTimestamp.TryGetValue(key, out var entity))
+            await UpsertByTimestampAsync(
+                _context.HydrationEntries,
+                userId,
+                rows,
+                overwriteConflicts,
+                entity => entity.Date,
+                row => row.Date,
+                (entity, row, normalizedDate) =>
                 {
-                    if (!overwriteConflicts)
-                        continue;
-
-                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.Date = normalizedDate;
                     entity.WaterIntakeLiters = row.WaterIntakeLiters;
-                    continue;
-                }
-
-                var newEntity = new HydrationEntry
+                },
+                (row, normalizedDate) => new HydrationEntry
                 {
                     UserId = userId,
-                    Date = NormalizeToUtc(rowDate),
+                    Date = normalizedDate,
                     WaterIntakeLiters = row.WaterIntakeLiters
-                };
-
-                _context.HydrationEntries.Add(newEntity);
-                existingByTimestamp[key] = newEntity;
-            }
+                });
         }
 
         private async Task UpsertHabitAsync(IEnumerable<HabitDTO> rows, string userId, bool overwriteConflicts)
         {
-            var existing = await _context.HabitEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
-
-            foreach (var row in rows)
-            {
-                var rowDate = row.Date ?? DateTime.UtcNow;
-                var key = FormatUtc(rowDate);
-
-                if (existingByTimestamp.TryGetValue(key, out var entity))
+            await UpsertByTimestampAsync(
+                _context.HabitEntries,
+                userId,
+                rows,
+                overwriteConflicts,
+                entity => entity.Date,
+                row => row.Date,
+                (entity, row, normalizedDate) =>
                 {
-                    if (!overwriteConflicts)
-                        continue;
-
-                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.Date = normalizedDate;
                     entity.Name = row.Name;
                     entity.Completed = row.Completed;
-                    continue;
-                }
-
-                var newEntity = new HabitEntry
+                },
+                (row, normalizedDate) => new HabitEntry
                 {
                     UserId = userId,
-                    Date = NormalizeToUtc(rowDate),
+                    Date = normalizedDate,
                     Name = row.Name,
                     Completed = row.Completed
-                };
-
-                _context.HabitEntries.Add(newEntity);
-                existingByTimestamp[key] = newEntity;
-            }
+                });
         }
 
         private async Task UpsertFoodAsync(IEnumerable<FoodEntryDTO> rows, string userId, bool overwriteConflicts)
         {
-            var existing = await _context.FoodEntries
-                .Where(x => x.UserId == userId)
-                .ToListAsync();
-
-            var existingByTimestamp = existing.ToDictionary(x => FormatUtc(x.Date), x => x);
-
-            foreach (var row in rows)
-            {
-                if (row.Date == default)
-                    throw new InvalidOperationException("Cannot import Food row with missing or default Date.");
-
-                var rowDate = row.Date;
-                var key = FormatUtc(rowDate);
-
-                if (existingByTimestamp.TryGetValue(key, out var entity))
+            await UpsertByTimestampAsync(
+                _context.FoodEntries,
+                userId,
+                rows,
+                overwriteConflicts,
+                entity => entity.Date,
+                row => row.Date == default ? null : row.Date,
+                (entity, row, normalizedDate) =>
                 {
-                    if (!overwriteConflicts)
-                        continue;
-
-                    entity.Date = NormalizeToUtc(rowDate);
+                    entity.Date = normalizedDate;
                     entity.FoodName = row.FoodName;
                     entity.Calories = row.Calories;
                     entity.Protein = row.Protein;
@@ -279,13 +214,11 @@ namespace WellTrackAPI.Services.Core
                     entity.Fat = row.Fat;
                     entity.ServingSize = row.ServingSize;
                     entity.MealType = row.MealType;
-                    continue;
-                }
-
-                var newEntity = new FoodEntry
+                },
+                (row, normalizedDate) => new FoodEntry
                 {
                     UserId = userId,
-                    Date = NormalizeToUtc(rowDate),
+                    Date = normalizedDate,
                     FoodName = row.FoodName,
                     Calories = row.Calories,
                     Protein = row.Protein,
@@ -293,68 +226,54 @@ namespace WellTrackAPI.Services.Core
                     Fat = row.Fat,
                     ServingSize = row.ServingSize,
                     MealType = row.MealType
-                };
-
-                _context.FoodEntries.Add(newEntity);
-                existingByTimestamp[key] = newEntity;
-            }
+                },
+                throwOnMissingDate: true,
+                missingDateMessage: "Cannot import Food row with missing or default Date.");
         }
 
         private async Task BuildOverwriteConflictsAsync(ImportPreviewDto preview, string userId)
         {
-            var stepKeys = await _context.StepEntries
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Date)
-                .ToListAsync();
-            var stepKeySet = stepKeys.Select(FormatUtc).ToHashSet();
-            preview.OverwriteConflicts.Steps = preview.Steps
-                .Where(x => x.Date.HasValue && stepKeySet.Contains(FormatUtc(x.Date.Value)))
-                .ToList();
+            preview.OverwriteConflicts.Steps = await GetConflictsAsync(
+                _context.StepEntries,
+                userId,
+                preview.Steps,
+                entity => entity.Date,
+                row => row.Date);
 
-            var sleepKeys = await _context.SleepEntries
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Date)
-                .ToListAsync();
-            var sleepKeySet = sleepKeys.Select(FormatUtc).ToHashSet();
-            preview.OverwriteConflicts.Sleep = preview.Sleep
-                .Where(x => x.Date.HasValue && sleepKeySet.Contains(FormatUtc(x.Date.Value)))
-                .ToList();
+            preview.OverwriteConflicts.Sleep = await GetConflictsAsync(
+                _context.SleepEntries,
+                userId,
+                preview.Sleep,
+                entity => entity.Date,
+                row => row.Date);
 
-            var moodKeys = await _context.MoodEntries
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Date)
-                .ToListAsync();
-            var moodKeySet = moodKeys.Select(FormatUtc).ToHashSet();
-            preview.OverwriteConflicts.Mood = preview.Mood
-                .Where(x => x.Date.HasValue && moodKeySet.Contains(FormatUtc(x.Date.Value)))
-                .ToList();
+            preview.OverwriteConflicts.Mood = await GetConflictsAsync(
+                _context.MoodEntries,
+                userId,
+                preview.Mood,
+                entity => entity.Date,
+                row => row.Date);
 
-            var hydrationKeys = await _context.HydrationEntries
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Date)
-                .ToListAsync();
-            var hydrationKeySet = hydrationKeys.Select(FormatUtc).ToHashSet();
-            preview.OverwriteConflicts.Hydration = preview.Hydration
-                .Where(x => x.Date.HasValue && hydrationKeySet.Contains(FormatUtc(x.Date.Value)))
-                .ToList();
+            preview.OverwriteConflicts.Hydration = await GetConflictsAsync(
+                _context.HydrationEntries,
+                userId,
+                preview.Hydration,
+                entity => entity.Date,
+                row => row.Date);
 
-            var habitKeys = await _context.HabitEntries
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Date)
-                .ToListAsync();
-            var habitKeySet = habitKeys.Select(FormatUtc).ToHashSet();
-            preview.OverwriteConflicts.Habit = preview.Habit
-                .Where(x => x.Date.HasValue && habitKeySet.Contains(FormatUtc(x.Date.Value)))
-                .ToList();
+            preview.OverwriteConflicts.Habit = await GetConflictsAsync(
+                _context.HabitEntries,
+                userId,
+                preview.Habit,
+                entity => entity.Date,
+                row => row.Date);
 
-            var foodKeys = await _context.FoodEntries
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Date)
-                .ToListAsync();
-            var foodKeySet = foodKeys.Select(FormatUtc).ToHashSet();
-            preview.OverwriteConflicts.Food = preview.Food
-                .Where(x => foodKeySet.Contains(FormatUtc(x.Date)))
-                .ToList();
+            preview.OverwriteConflicts.Food = await GetConflictsAsync(
+                _context.FoodEntries,
+                userId,
+                preview.Food,
+                entity => entity.Date,
+                row => row.Date);
 
             AddConflictWarning(preview, "Steps", preview.OverwriteConflicts.Steps.Count);
             AddConflictWarning(preview, "Sleep", preview.OverwriteConflicts.Sleep.Count);
@@ -372,33 +291,17 @@ namespace WellTrackAPI.Services.Core
             preview.Warnings.Add($"{trackerName}: {count} row(s) match existing database timestamps and are available as overwrite conflicts.");
         }
 
+        //removes rows with future dates (compared to current UTC time) - for all trackers, adds warning if any rows were removed
         private void RemoveFutureDatedRows(ImportPreviewDto preview)
         {
             var now = DateTime.UtcNow;
 
-            preview.Steps = preview.Steps
-                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
-                .ToList();
-
-            preview.Sleep = preview.Sleep
-                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
-                .ToList();
-
-            preview.Mood = preview.Mood
-                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
-                .ToList();
-
-            preview.Hydration = preview.Hydration
-                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
-                .ToList();
-
-            preview.Habit = preview.Habit
-                .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value) <= now)
-                .ToList();
-
-            preview.Food = preview.Food
-                .Where(x => x.Date != default && NormalizeToUtc(x.Date) <= now)
-                .ToList();
+            preview.Steps = FilterNonFutureNullable(preview.Steps, x => x.Date, now);
+            preview.Sleep = FilterNonFutureNullable(preview.Sleep, x => x.Date, now);
+            preview.Mood = FilterNonFutureNullable(preview.Mood, x => x.Date, now);
+            preview.Hydration = FilterNonFutureNullable(preview.Hydration, x => x.Date, now);
+            preview.Habit = FilterNonFutureNullable(preview.Habit, x => x.Date, now);
+            preview.Food = FilterNonFutureNonDefault(preview.Food, x => x.Date, now);
         }
 
         private void ApplyRange(ImportPreviewDto preview, string rangeMode, DateTime? from, DateTime? to)
@@ -421,58 +324,24 @@ namespace WellTrackAPI.Services.Core
             {
                 var todayUtc = DateTime.UtcNow.Date;
 
-                preview.Steps = preview.Steps
-                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
-                    .ToList();
-
-                preview.Sleep = preview.Sleep
-                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
-                    .ToList();
-
-                preview.Mood = preview.Mood
-                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
-                    .ToList();
-
-                preview.Hydration = preview.Hydration
-                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
-                    .ToList();
-
-                preview.Habit = preview.Habit
-                    .Where(x => x.Date.HasValue && NormalizeToUtc(x.Date.Value).Date == todayUtc)
-                    .ToList();
-
-                preview.Food = preview.Food
-                    .Where(x => x.Date != default && NormalizeToUtc(x.Date).Date == todayUtc)
-                    .ToList();
+                preview.Steps = FilterByUtcDate(preview.Steps, x => x.Date, todayUtc);
+                preview.Sleep = FilterByUtcDate(preview.Sleep, x => x.Date, todayUtc);
+                preview.Mood = FilterByUtcDate(preview.Mood, x => x.Date, todayUtc);
+                preview.Hydration = FilterByUtcDate(preview.Hydration, x => x.Date, todayUtc);
+                preview.Habit = FilterByUtcDate(preview.Habit, x => x.Date, todayUtc);
+                preview.Food = FilterByUtcDate(preview.Food, x => x.Date == default ? null : x.Date, todayUtc);
             }
             else if (string.Equals(rangeMode, "range", StringComparison.OrdinalIgnoreCase))
             {
                 var normalizedFrom = from?.ToUniversalTime();
                 var normalizedTo = to?.ToUniversalTime();
 
-                preview.Steps = preview.Steps
-                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
-                    .ToList();
-
-                preview.Sleep = preview.Sleep
-                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
-                    .ToList();
-
-                preview.Mood = preview.Mood
-                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
-                    .ToList();
-
-                preview.Hydration = preview.Hydration
-                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
-                    .ToList();
-
-                preview.Habit = preview.Habit
-                    .Where(x => x.Date.HasValue && IsWithinRange(NormalizeToUtc(x.Date.Value), normalizedFrom, normalizedTo))
-                    .ToList();
-
-                preview.Food = preview.Food
-                    .Where(x => x.Date != default && IsWithinRange(NormalizeToUtc(x.Date), normalizedFrom, normalizedTo))
-                    .ToList();
+                preview.Steps = FilterByRange(preview.Steps, x => x.Date, normalizedFrom, normalizedTo);
+                preview.Sleep = FilterByRange(preview.Sleep, x => x.Date, normalizedFrom, normalizedTo);
+                preview.Mood = FilterByRange(preview.Mood, x => x.Date, normalizedFrom, normalizedTo);
+                preview.Hydration = FilterByRange(preview.Hydration, x => x.Date, normalizedFrom, normalizedTo);
+                preview.Habit = FilterByRange(preview.Habit, x => x.Date, normalizedFrom, normalizedTo);
+                preview.Food = FilterByRange(preview.Food, x => x.Date == default ? null : x.Date, normalizedFrom, normalizedTo);
             }
 
             int afterCount =
@@ -501,6 +370,130 @@ namespace WellTrackAPI.Services.Core
             return true;
         }
 
+        private async Task UpsertByTimestampAsync<TEntity, TRow>(
+            DbSet<TEntity> set,
+            string userId,
+            IEnumerable<TRow> rows,
+            bool overwriteConflicts,
+            Func<TEntity, DateTime> entityDateSelector,
+            Func<TRow, DateTime?> rowDateSelector,
+            Action<TEntity, TRow, DateTime> updateEntity,
+            Func<TRow, DateTime, TEntity> createEntity,
+            bool throwOnMissingDate = false,
+            string? missingDateMessage = null)
+            where TEntity : class
+        {
+            var existing = await set
+                .Where(x => EF.Property<string>(x, "UserId") == userId)
+                .ToListAsync();
+
+            var existingByTimestamp = new Dictionary<string, TEntity>(StringComparer.Ordinal);
+            foreach (var entity in existing)
+            {
+                var key = FormatUtc(entityDateSelector(entity));
+                if (!existingByTimestamp.ContainsKey(key))
+                {
+                    existingByTimestamp[key] = entity;
+                }
+            }
+
+            foreach (var row in rows)
+            {
+                var rowDate = rowDateSelector(row);
+                if (!rowDate.HasValue)
+                {
+                    if (throwOnMissingDate)
+                        throw new InvalidOperationException(missingDateMessage ?? "Missing Date in import row.");
+
+                    rowDate = DateTime.UtcNow;
+                }
+
+                var key = FormatUtc(rowDate.Value);
+                var normalizedDate = NormalizeToUtc(rowDate.Value);
+
+                if (existingByTimestamp.TryGetValue(key, out var entity))
+                {
+                    if (!overwriteConflicts)
+                        continue;
+
+                    updateEntity(entity, row, normalizedDate);
+                    continue;
+                }
+
+                var newEntity = createEntity(row, normalizedDate);
+                set.Add(newEntity);
+                existingByTimestamp[key] = newEntity;
+            }
+        }
+
+        private async Task<List<TDto>> GetConflictsAsync<TEntity, TDto>(
+            DbSet<TEntity> set,
+            string userId,
+            IEnumerable<TDto> rows,
+            Expression<Func<TEntity, DateTime>> entityDateSelector,
+            Func<TDto, DateTime?> rowDateSelector)
+            where TEntity : class
+        {
+            var keys = await set
+                .Where(x => EF.Property<string>(x, "UserId") == userId)
+                .Select(entityDateSelector)
+                .ToListAsync();
+
+            var keySet = keys.Select(FormatUtc).ToHashSet();
+            return rows
+                .Where(x => rowDateSelector(x).HasValue && keySet.Contains(FormatUtc(rowDateSelector(x)!.Value)))
+                .ToList();
+        }
+
+        //removes rows with future dates (compared to current UTC time) - for nullable date selectors
+        private static List<T> FilterNonFutureNullable<T>(IEnumerable<T> rows, Func<T, DateTime?> dateSelector, DateTime nowUtc)
+        {
+            return rows
+                .Where(x =>
+                {
+                    var date = dateSelector(x);
+                    return date.HasValue && NormalizeToUtc(date.Value) <= nowUtc;
+                })
+                .ToList();
+        }
+        //removes rows with future dates (compared to current UTC time) - for non-nullable date selectors where default value is considered missing
+        private static List<T> FilterNonFutureNonDefault<T>(IEnumerable<T> rows, Func<T, DateTime> dateSelector, DateTime nowUtc)
+        {
+            return rows
+                .Where(x =>
+                {
+                    var date = dateSelector(x);
+                    return date != default && NormalizeToUtc(date) <= nowUtc;
+                })
+                .ToList();
+        }
+
+        private static List<T> FilterByUtcDate<T>(IEnumerable<T> rows, Func<T, DateTime?> dateSelector, DateTime targetDateUtc)
+        {
+            return rows
+                .Where(x =>
+                {
+                    var date = dateSelector(x);
+                    return date.HasValue && NormalizeToUtc(date.Value).Date == targetDateUtc;
+                })
+                .ToList();
+        }
+
+        private static List<T> FilterByRange<T>(
+            IEnumerable<T> rows,
+            Func<T, DateTime?> dateSelector,
+            DateTime? from,
+            DateTime? to)
+        {
+            return rows
+                .Where(x =>
+                {
+                    var date = dateSelector(x);
+                    return date.HasValue && IsWithinRange(NormalizeToUtc(date.Value), from, to);
+                })
+                .ToList();
+        }
+
         private void ParseStepsSheet(XLWorkbook workbook, ImportPreviewDto preview)
         {
             var sheet = workbook.Worksheets.FirstOrDefault(ws => ws.Name == "Steps");
@@ -515,7 +508,7 @@ namespace WellTrackAPI.Services.Core
                 var activity = NormalizeOption(ReadTextCell(sheet.Cell(row, 2), errors, row, "Steps.ActivityType"));
                 var stepsCount = ReadIntegerCell(sheet.Cell(row, 3), errors, row, "Steps.StepsCount");
 
-                if (!new[] { "Running", "Walking", "Hiking", "Cycling" }.Contains(activity))
+                if (!AllowedActivityTypes.Contains(activity))
                     errors.Add($"Row {row}: Invalid ActivityType '{activity}'");
 
                 if (stepsCount < 0)
@@ -558,7 +551,7 @@ namespace WellTrackAPI.Services.Core
                 if (hours <= 0 || hours > 24)
                     errors.Add($"Row {row}: Sleep.Hours '{hours}' must be greater than 0 and at most 24.");
 
-                if (!new[] { "Good", "Average", "Poor" }.Contains(quality))
+                if (!AllowedSleepQualities.Contains(quality))
                     errors.Add($"Row {row}: Invalid Quality '{quality}'");
 
                 if (errors.Any())
@@ -602,7 +595,7 @@ namespace WellTrackAPI.Services.Core
                 var mood = NormalizeOption(ReadTextCell(sheet.Cell(row, 2), errors, row, "Mood.Mood"));
                 var notes = ReadOptionalTextCell(sheet.Cell(row, 3));
 
-                if (!new[] { "Happy", "Neutral", "Relaxed", "Sad", "Angry" }.Contains(mood))
+                if (!AllowedMoods.Contains(mood))
                     errors.Add($"Row {row}: Invalid Mood '{mood}'");
 
                 if (errors.Any())
@@ -707,7 +700,7 @@ namespace WellTrackAPI.Services.Core
                 var serving = ReadTextCell(sheet.Cell(row, 7), errors, row, "Food.ServingSize");
                 var meal = NormalizeOption(ReadTextCell(sheet.Cell(row, 8), errors, row, "Food.MealType"));
 
-                if (!new[] { "Breakfast", "Lunch", "Snack", "Dinner" }.Contains(meal))
+                if (!AllowedMealTypes.Contains(meal))
                     errors.Add($"Row {row}: Invalid MealType '{meal}'");
 
                 if (calories < 0 || protein < 0 || carbs < 0 || fat < 0)
